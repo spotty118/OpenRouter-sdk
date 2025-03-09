@@ -1,9 +1,9 @@
 /**
  * Chroma vector database implementation for knowledge storage and retrieval
  */
-import { Logger } from './logger';
+import { Logger } from './logger.js';
 import { ChromaClient, IncludeEnum } from 'chromadb';
-import { EmbeddingGenerator } from './embedding-generator';
+import { EmbeddingGenerator } from './embedding-generator.js';
 /**
  * Chroma vector database implementation
  *

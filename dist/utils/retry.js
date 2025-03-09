@@ -1,4 +1,4 @@
-import { OpenRouterError } from '../errors/openrouter-error';
+import { OpenRouterError } from '../errors/openrouter-error.js';
 /**
  * Execute a function with automatic retries and exponential backoff
  *

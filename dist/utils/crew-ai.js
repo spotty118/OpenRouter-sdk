@@ -4,10 +4,10 @@
  * Provides utilities for creating, managing and orchestrating agents and tasks
  * in a multi-agent system.
  */
-import { ProcessMode, TaskStatus } from '../interfaces';
-import { Logger } from './logger';
-import { OpenRouterError } from '../errors/openrouter-error';
-import { VectorDB, createVectorDB } from './vector-db';
+import { ProcessMode, TaskStatus } from '../interfaces/index.js';
+import { Logger } from './logger.js';
+import { OpenRouterError } from '../errors/openrouter-error.js';
+import { VectorDB, createVectorDB } from './vector-db.js';
 /**
  * CrewAI utility class for orchestrating multiple AI agents
  */

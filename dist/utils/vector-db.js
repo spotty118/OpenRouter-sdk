@@ -1,10 +1,10 @@
 /**
  * Vector database implementation for knowledge storage and retrieval
  */
-import { Logger } from './logger';
+import { Logger } from './logger.js';
 import * as fs from 'fs';
 import * as path from 'path';
-import { ChromaVectorDB } from './chroma-vector-db';
+import { ChromaVectorDB } from './chroma-vector-db.js';
 /**
  * Vector database type
  */

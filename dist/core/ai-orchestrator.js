@@ -4,10 +4,10 @@
  * This class provides a unified interface for working with AI models, agent orchestration,
  * function calling, and knowledge management through vector databases.
  */
-import { OpenRouter } from './open-router';
-import { FunctionCalling } from '../utils/function-calling';
-import { Logger } from '../utils/logger';
-import { OpenRouterError } from '../errors/openrouter-error';
+import { OpenRouter } from './open-router.js';
+import { FunctionCalling } from '../utils/function-calling.js';
+import { Logger } from '../utils/logger.js';
+import { OpenRouterError } from '../errors/openrouter-error.js';
 /**
  * AI Orchestrator class that integrates OpenRouter, CrewAI, and Vector DB capabilities
  */

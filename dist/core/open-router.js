@@ -1,5 +1,5 @@
-import { Logger, MemoryCache, RateLimiter, retry, ProviderRouting, WebSearch, StructuredOutput, Reasoning, CrewAI, VectorDB, createVectorDB } from '../utils';
-import { OpenRouterError } from '../errors/openrouter-error';
+import { Logger, MemoryCache, RateLimiter, retry, ProviderRouting, WebSearch, StructuredOutput, Reasoning, CrewAI, VectorDB, createVectorDB } from '../utils/index.js';
+import { OpenRouterError } from '../errors/openrouter-error.js';
 /**
  * Main OpenRouter SDK class
  *
