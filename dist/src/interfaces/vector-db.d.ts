@@ -1,174 +1,132 @@
 /**
- * Vector database interfaces for knowledge storage and retrieval
+ * Vector Database Interfaces
  */
 /**
- * Represents a document in the vector database
+ * Base document interface for vector database storage
  */
 export interface VectorDocument {
-    /** Unique identifier for the document */
+    /**
+     * Unique identifier for the document
+     */
     id: string;
-    /** The text content of the document */
+    /**
+     * Document content (can be text, JSON string, etc.)
+     */
     content: string;
-    /** Optional metadata associated with the document */
-    metadata?: Record<string, any>;
-    /** Optional embedding vector if pre-computed */
-    embedding?: number[];
+    /**
+     * Metadata associated with the document
+     */
+    metadata: Record<string, any>;
 }
 /**
- * Result of a vector search operation
+ * Search result interface for vector queries
  */
 export interface VectorSearchResult {
-    /** The document that matched the search */
+    /**
+     * Document matching the query
+     */
     document: VectorDocument;
-    /** Similarity score (higher is more similar) */
+    /**
+     * Similarity score (0-1, higher is better)
+     */
     score: number;
 }
 /**
- * Configuration options for the vector database
+ * Document options for adding/updating documents
  */
-export interface VectorDBConfig {
-    /** Dimensionality of the embedding vectors */
-    dimensions: number;
-    /** Maximum number of vectors to store in memory (default: 10000) */
-    maxVectors?: number;
-    /** Similarity metric to use (default: 'cosine') */
-    similarityMetric?: 'cosine' | 'euclidean' | 'dot';
-    /** Whether to persist vectors to disk */
-    persistToDisk?: boolean;
-    /** Path to store persisted vectors (default: './.vectordb') */
-    storagePath?: string;
+export interface VectorDocumentOptions {
+    /**
+     * Collection name
+     */
+    collectionName: string;
+    /**
+     * Document to store
+     */
+    document: VectorDocument;
+    /**
+     * Vector embedding for semantic search
+     */
+    embedding: number[];
 }
 /**
- * Vector database type
- */
-export declare enum VectorDBType {
-    /** In-memory vector database with optional persistence */
-    InMemory = "in-memory",
-    /** Chroma vector database */
-    Chroma = "chroma"
-}
-/**
- * Configuration options specific to Chroma
- */
-export interface ChromaVectorDBConfig extends VectorDBConfig {
-    /** Chroma server URL (default: http://localhost:8000) */
-    chromaUrl?: string;
-    /** Chroma API key if authentication is enabled */
-    chromaApiKey?: string;
-    /** Collection prefix to avoid name collisions */
-    collectionPrefix?: string;
-    /** Whether to use in-memory Chroma instance (default: false) */
-    useInMemory?: boolean;
-}
-/**
- * Extended vector database configuration with type
- */
-export interface ExtendedVectorDBConfig extends VectorDBConfig {
-    /** Type of vector database to use */
-    type?: VectorDBType;
-    /** Chroma-specific configuration (only used if type is Chroma) */
-    chroma?: Omit<ChromaVectorDBConfig, keyof VectorDBConfig>;
-}
-/**
- * Options for vector search operations
+ * Search options for vector database queries
  */
 export interface VectorSearchOptions {
-    /** Maximum number of results to return */
+    /**
+     * Collection name to search in
+     */
+    collectionName: string;
+    /**
+     * Query string or vector depending on search type
+     */
+    query?: string;
+    vector?: number[];
+    /**
+     * Optional filter query
+     */
+    filter?: string;
+    /**
+     * Maximum results to return
+     */
     limit?: number;
-    /** Minimum similarity score threshold (0-1) */
-    minScore?: number;
-    /** Filter based on metadata */
-    filter?: (metadata: Record<string, any>) => boolean;
-    /** Whether to include the raw vectors in the results */
-    includeVectors?: boolean;
-    /** Namespace or collection to search in */
-    namespace?: string;
 }
 /**
- * Interface for vector database implementations
+ * Delete options for removing documents
  */
-export interface IVectorDB {
+export interface VectorDeleteOptions {
     /**
-     * Add a document to the vector database
-     *
-     * @param document - The document to add
-     * @param namespace - Optional namespace/collection to add the document to
-     * @returns Promise resolving to the document ID
+     * Collection name
      */
-    addDocument(document: VectorDocument, namespace?: string): Promise<string>;
+    collectionName: string;
     /**
-     * Add multiple documents to the vector database
-     *
-     * @param documents - Array of documents to add
-     * @param namespace - Optional namespace/collection to add the documents to
-     * @returns Promise resolving to an array of document IDs
+     * Document ID to delete
      */
-    addDocuments(documents: VectorDocument[], namespace?: string): Promise<string[]>;
+    id: string;
+}
+/**
+ * Collection creation options
+ */
+export interface VectorCollectionOptions {
     /**
-     * Search for similar documents using text query
-     *
-     * @param text - The text to search for
-     * @param options - Search options
-     * @returns Promise resolving to an array of search results
+     * Vector dimension size
      */
-    searchByText(text: string, options?: VectorSearchOptions): Promise<VectorSearchResult[]>;
+    dimension?: number;
     /**
-     * Search for similar documents using a vector
-     *
-     * @param vector - The embedding vector to search with
-     * @param options - Search options
-     * @returns Promise resolving to an array of search results
+     * Collection metadata
      */
-    searchByVector(vector: number[], options?: VectorSearchOptions): Promise<VectorSearchResult[]>;
+    metadata?: Record<string, any>;
+}
+/**
+ * Generic vector database interface
+ */
+export interface VectorDB {
     /**
-     * Get a document by its ID
-     *
-     * @param id - The document ID
-     * @param namespace - Optional namespace/collection to search in
-     * @returns Promise resolving to the document or null if not found
+     * Add a document to the database
      */
-    getDocument(id: string, namespace?: string): Promise<VectorDocument | null>;
+    addDocument(options: VectorDocumentOptions): Promise<void>;
     /**
-     * Update an existing document
-     *
-     * @param id - The document ID
-     * @param document - The updated document data
-     * @param namespace - Optional namespace/collection
-     * @returns Promise resolving to a boolean indicating success
+     * Update a document in the database
      */
-    updateDocument(id: string, document: Partial<VectorDocument>, namespace?: string): Promise<boolean>;
+    updateDocument(options: VectorDocumentOptions): Promise<void>;
     /**
-     * Delete a document by its ID
-     *
-     * @param id - The document ID
-     * @param namespace - Optional namespace/collection
-     * @returns Promise resolving to a boolean indicating success
+     * Delete a document from the database
      */
-    deleteDocument(id: string, namespace?: string): Promise<boolean>;
+    deleteDocument(options: VectorDeleteOptions): Promise<void>;
     /**
-     * Delete all documents in a namespace
-     *
-     * @param namespace - The namespace to clear
-     * @returns Promise resolving to the number of documents deleted
+     * Search for documents by text query or vector embedding
      */
-    deleteNamespace(namespace: string): Promise<number>;
+    search(options: VectorSearchOptions): Promise<VectorSearchResult[]>;
     /**
-     * Get all available namespaces
-     *
-     * @returns Promise resolving to an array of namespace names
+     * Search for documents by vector embedding
      */
-    listNamespaces(): Promise<string[]>;
+    searchByVector(options: VectorSearchOptions): Promise<VectorSearchResult[]>;
     /**
-     * Save the current state to disk (if persistence is enabled)
-     *
-     * @returns Promise resolving when save is complete
+     * Get document count in a collection
      */
-    save(): Promise<void>;
+    count(collectionName: string): Promise<number>;
     /**
-     * Load state from disk (if persistence is enabled)
-     *
-     * @returns Promise resolving when load is complete
+     * Delete an entire collection
      */
-    load(): Promise<void>;
+    deleteCollection(collectionName: string): Promise<void>;
 }
 //# sourceMappingURL=vector-db.d.ts.map

@@ -14,4 +14,5 @@ export * from './reasoning.js';
 export * from './structured-outputs.js';
 export * from './crew-ai.js';
 export * from './vector-db.js';
+export * from './provider.js';
 //# sourceMappingURL=index.js.map

@@ -1,148 +1,83 @@
 /**
- * Chroma vector database implementation for knowledge storage and retrieval
- */
-import { IVectorDB, VectorDBConfig, VectorDocument, VectorSearchOptions, VectorSearchResult } from '../interfaces/index.js';
-/**
- * Configuration options specific to Chroma
- */
-export interface ChromaVectorDBConfig extends VectorDBConfig {
-    /** Chroma server URL (default: http://localhost:8000) */
-    chromaUrl?: string;
-    /** Chroma API key if authentication is enabled */
-    chromaApiKey?: string;
-    /** Collection prefix to avoid name collisions */
-    collectionPrefix?: string;
-    /** Whether to use in-memory Chroma instance (default: false) */
-    useInMemory?: boolean;
-}
-/**
- * Chroma vector database implementation
+ * ChromaDB Vector Database Implementation
  *
- * This implementation provides a vector database that uses Chroma for
- * storing and retrieving embeddings with high-performance vector search.
+ * This module provides a ChromaDB-based implementation of vector database functionality
+ * for semantic search and document storage.
  */
-export declare class ChromaVectorDB implements IVectorDB {
+import { VectorSearchResult, VectorDocumentOptions, VectorSearchOptions, VectorDeleteOptions, VectorDB } from '../interfaces/vector-db.js';
+/**
+ * ChromaDB Vector Database implementation
+ */
+export declare class ChromaVectorDB implements VectorDB {
     private client;
     private collections;
-    private config;
     private logger;
-    private defaultNamespace;
-    private initialized;
-    private embeddingGenerator;
     /**
-     * Create a new Chroma vector database
+     * Create a new ChromaDB vector database instance
      *
-     * @param config - Configuration options
+     * @param config Configuration options
      */
-    constructor(config: ChromaVectorDBConfig);
+    constructor(config?: {
+        host?: string;
+        port?: number;
+        logLevel?: 'none' | 'error' | 'warn' | 'info' | 'debug';
+    });
     /**
-     * Initialize a collection in Chroma
+     * Get or create a collection
      *
-     * @param namespace - The namespace/collection name
-     * @returns Promise resolving to the collection
+     * @param name Collection name
+     * @param options Collection options
+     * @returns Collection instance
      */
-    private initializeCollection;
+    private getOrCreateCollection;
     /**
-     * Map our similarity metric to Chroma's distance function
+     * Add a document to the database
      *
-     * @param metric - Our similarity metric
-     * @returns Chroma distance function name
+     * @param options Document options
      */
-    private mapSimilarityMetric;
+    addDocument(options: VectorDocumentOptions): Promise<void>;
     /**
-     * Get a collection, initializing it if necessary
+     * Update a document in the database
      *
-     * @param namespace - The namespace/collection name
-     * @returns Promise resolving to the collection
+     * @param options Document options
      */
-    private getCollection;
+    updateDocument(options: VectorDocumentOptions): Promise<void>;
     /**
-     * Generate a random embedding for testing purposes
+     * Delete a document from the database
      *
-     * @returns A random embedding vector
+     * @param options Delete options
      */
-    private createRandomEmbedding;
+    deleteDocument(options: VectorDeleteOptions): Promise<void>;
     /**
-     * Add a document to the vector database
+     * Search for documents by text query or vector embedding
      *
-     * @param document - The document to add
-     * @param namespace - Optional namespace/collection to add the document to
-     * @returns Promise resolving to the document ID
+     * @param options Search options
+     * @returns Matching documents with similarity scores
      */
-    addDocument(document: VectorDocument, namespace?: string): Promise<string>;
+    search(options: VectorSearchOptions): Promise<VectorSearchResult[]>;
     /**
-     * Add multiple documents to the vector database
+     * Search for documents by vector embedding
      *
-     * @param documents - Array of documents to add
-     * @param namespace - Optional namespace/collection to add the documents to
-     * @returns Promise resolving to an array of document IDs
+     * @param options Search options (must include vector)
+     * @returns Matching documents with similarity scores
      */
-    addDocuments(documents: VectorDocument[], namespace?: string): Promise<string[]>;
+    searchByVector(options: VectorSearchOptions): Promise<VectorSearchResult[]>;
     /**
-     * Search for similar documents using text query
+     * Get total count of documents in a collection
      *
-     * @param text - The text to search for
-     * @param options - Search options
-     * @returns Promise resolving to an array of search results
+     * @param collectionName Collection name
+     * @returns Document count
      */
-    searchByText(text: string, options?: VectorSearchOptions): Promise<VectorSearchResult[]>;
+    count(collectionName: string): Promise<number>;
     /**
-     * Search for similar documents using a vector
+     * Delete an entire collection
      *
-     * @param vector - The embedding vector to search with
-     * @param options - Search options
-     * @returns Promise resolving to an array of search results
+     * @param collectionName Collection name
      */
-    searchByVector(vector: number[], options?: VectorSearchOptions): Promise<VectorSearchResult[]>;
+    deleteCollection(collectionName: string): Promise<void>;
     /**
-     * Get a document by its ID
-     *
-     * @param id - The document ID
-     * @param namespace - Optional namespace/collection to search in
-     * @returns Promise resolving to the document or null if not found
+     * Reset the database (delete all collections)
      */
-    getDocument(id: string, namespace?: string): Promise<VectorDocument | null>;
-    /**
-     * Update an existing document
-     *
-     * @param id - The document ID
-     * @param document - The updated document data
-     * @param namespace - Optional namespace/collection
-     * @returns Promise resolving to a boolean indicating success
-     */
-    updateDocument(id: string, document: Partial<VectorDocument>, namespace?: string): Promise<boolean>;
-    /**
-     * Delete a document by its ID
-     *
-     * @param id - The document ID
-     * @param namespace - Optional namespace/collection
-     * @returns Promise resolving to a boolean indicating success
-     */
-    deleteDocument(id: string, namespace?: string): Promise<boolean>;
-    /**
-     * Delete all documents in a namespace
-     *
-     * @param namespace - The namespace to clear
-     * @returns Promise resolving to the number of documents deleted
-     */
-    deleteNamespace(namespace: string): Promise<number>;
-    /**
-     * Get all available namespaces
-     *
-     * @returns Promise resolving to an array of namespace names
-     */
-    listNamespaces(): Promise<string[]>;
-    /**
-     * Save the current state to disk (if persistence is enabled)
-     *
-     * @returns Promise resolving when save is complete
-     */
-    save(): Promise<void>;
-    /**
-     * Load state from disk (if persistence is enabled)
-     *
-     * @returns Promise resolving when load is complete
-     */
-    load(): Promise<void>;
+    reset(): Promise<void>;
 }
 //# sourceMappingURL=chroma-vector-db.d.ts.map

@@ -15,3 +15,5 @@ export * from './structured-output.js';
 export * from './crew-ai.js';
 export * from './vector-db.js';
 export * from './embedding-generator.js';
+export * from './provider-manager.js';
+export * from './provider-integration.js';

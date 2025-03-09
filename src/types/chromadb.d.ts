@@ -1,40 +1,69 @@
 /**
- * Type declarations for ChromaDB
+ * Type definitions for ChromaDB client library
  */
 
 declare module 'chromadb' {
-  export enum IncludeEnum {
-    Documents = 'documents',
-    Embeddings = 'embeddings',
-    Metadatas = 'metadatas',
-    Distances = 'distances'
+  export class ChromaClient {
+    constructor(config?: { path?: string });
+    
+    /**
+     * Get a collection by name
+     */
+    getCollection(params: GetCollectionParams): Promise<Collection>;
+    
+    /**
+     * Create a new collection
+     */
+    createCollection(params: CreateCollectionParams): Promise<Collection>;
+    
+    /**
+     * Delete a collection
+     */
+    deleteCollection(name: string): Promise<void>;
+    
+    /**
+     * Reset the entire database
+     */
+    reset(): Promise<void>;
   }
 
-  export interface ChromaClientParams {
-    path?: string;
-    fetchOptions?: {
-      headers?: Record<string, string>;
-    };
+  export interface Collection {
+    /**
+     * Add documents to the collection
+     */
+    add(params: AddParams): Promise<void>;
+    
+    /**
+     * Update documents in the collection
+     */
+    update(params: UpdateParams): Promise<void>;
+    
+    /**
+     * Delete documents from the collection
+     */
+    delete(params: DeleteParams): Promise<void>;
+    
+    /**
+     * Query documents in the collection
+     */
+    query(params: QueryParams): Promise<QueryResults>;
+    
+    /**
+     * Get document count
+     */
+    count(): Promise<number>;
   }
 
-  export interface CollectionMetadata {
+  export interface GetCollectionParams {
     name: string;
+    embeddingFunction?: {
+      dimension?: number;
+    };
     metadata?: Record<string, any>;
   }
 
-  export interface GetParams {
-    ids?: string[];
-    where?: Record<string, any>;
-    limit?: number;
-    offset?: number;
-    include?: IncludeEnum[];
-  }
-
-  export interface GetResult {
-    ids: string[];
-    embeddings?: number[][];
-    metadatas?: Record<string, any>[];
-    documents?: string[];
+  export interface CreateCollectionParams extends GetCollectionParams {
+    metadata?: Record<string, any>;
   }
 
   export interface AddParams {
@@ -44,11 +73,10 @@ declare module 'chromadb' {
     documents?: string[];
   }
 
-  export interface UpdateParams {
+  export interface UpdateParams extends AddParams {}
+
+  export interface DeleteParams {
     ids: string[];
-    embeddings?: number[][];
-    metadatas?: Record<string, any>[];
-    documents?: string[];
   }
 
   export interface QueryParams {
@@ -56,54 +84,12 @@ declare module 'chromadb' {
     queryTexts?: string[];
     nResults?: number;
     where?: Record<string, any>;
-    include?: IncludeEnum[];
   }
 
-  export interface QueryResult {
+  export interface QueryResults {
     ids: string[][];
-    distances?: number[][];
-    metadatas?: Record<string, any>[][];
-    embeddings?: number[][][];
-    documents?: string[][];
-  }
-
-  export interface DeleteParams {
-    ids?: string[];
-    where?: Record<string, any>;
-  }
-
-  export interface Collection {
-    name: string;
-    metadata?: Record<string, any>;
-    count: () => Promise<number>;
-    add: (params: AddParams) => Promise<void>;
-    get: (params: GetParams) => Promise<GetResult>;
-    update: (params: UpdateParams) => Promise<void>;
-    query: (params: QueryParams) => Promise<QueryResult>;
-    delete: (params?: DeleteParams) => Promise<void>;
-  }
-
-  export interface CreateCollectionParams {
-    name: string;
-    metadata?: Record<string, any>;
-    embeddingFunction?: any;
-    distanceFunction?: string;
-  }
-
-  export interface GetCollectionParams {
-    name: string;
-    embeddingFunction?: any;
-  }
-
-  export class ChromaClient {
-    constructor(params?: ChromaClientParams);
-    
-    listCollections(): Promise<CollectionMetadata[]>;
-    
-    getCollection(params: GetCollectionParams): Promise<Collection>;
-    
-    createCollection(params: CreateCollectionParams): Promise<Collection>;
-    
-    deleteCollection(name: string): Promise<void>;
+    distances: number[][];
+    documents: string[][];
+    metadatas: Record<string, any>[][];
   }
 }
