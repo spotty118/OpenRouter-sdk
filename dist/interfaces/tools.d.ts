@@ -34,3 +34,4 @@ export interface ToolCall {
         arguments: string;
     };
 }
+//# sourceMappingURL=tools.d.ts.map

@@ -66,3 +66,4 @@ export declare class FunctionCalling {
      */
     static executeToolCalls(toolCalls: ToolCall[], functions: Record<string, (...args: any[]) => any>): Promise<Record<string, any>>;
 }
+//# sourceMappingURL=function-calling.d.ts.map

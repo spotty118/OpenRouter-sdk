@@ -36,3 +36,4 @@ export interface Cache<T> {
      */
     clear(): void;
 }
+//# sourceMappingURL=cache.d.ts.map

@@ -47,3 +47,4 @@ export interface ProviderPreferences {
  * Model suffix type for shorthand notation
  */
 export type ModelSuffix = 'nitro' | 'floor' | 'online';
+//# sourceMappingURL=provider-routing.d.ts.map

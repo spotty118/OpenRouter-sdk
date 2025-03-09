@@ -97,3 +97,4 @@ export interface AudioTranscriptionRequest {
     temperature?: number;
     timestamp_granularities?: Array<'segment' | 'word'>;
 }
+//# sourceMappingURL=requests.d.ts.map

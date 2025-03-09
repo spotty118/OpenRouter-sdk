@@ -1,8 +1,5 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.OpenRouter = void 0;
-const utils_1 = require("../utils");
-const openrouter_error_1 = require("../errors/openrouter-error");
+import { Logger, MemoryCache, RateLimiter, retry, ProviderRouting, WebSearch, StructuredOutput, Reasoning, CrewAI, VectorDB, createVectorDB } from '../utils';
+import { OpenRouterError } from '../errors/openrouter-error';
 /**
  * Main OpenRouter SDK class
  *
@@ -10,40 +7,29 @@ const openrouter_error_1 = require("../errors/openrouter-error");
  * various AI models for chat completions, embeddings, image generation,
  * and audio transcription.
  */
-class OpenRouter {
-    apiKey;
-    baseUrl;
-    apiVersion;
-    defaultModel;
-    headers;
-    timeout;
-    maxRetries;
-    logger;
-    cache;
-    middlewares = [];
-    rateLimiter;
-    totalCost = 0;
-    requestsInFlight = new Set();
-    crewAI;
-    vectorDbs = new Map();
+export class OpenRouter {
     /**
      * Create a new OpenRouter SDK instance
      *
      * @param config - SDK configuration options
      */
     constructor(config) {
+        this.middlewares = [];
+        this.totalCost = 0;
+        this.requestsInFlight = new Set();
+        this.vectorDbs = new Map();
         this.apiKey = config.apiKey;
         this.baseUrl = config.baseUrl || 'https://openrouter.ai/api';
         this.apiVersion = 'v1';
         this.defaultModel = config.defaultModel || 'openai/gpt-3.5-turbo';
         this.timeout = config.timeout || 30000;
         this.maxRetries = config.maxRetries || 3;
-        this.logger = new utils_1.Logger(config.logLevel || 'info');
+        this.logger = new Logger(config.logLevel || 'info');
         // Initialize cache
         const cacheTTL = config.cacheTTL || 60 * 60 * 1000; // Default 1 hour
-        this.cache = new utils_1.MemoryCache(config.enableCaching !== false ? cacheTTL : 0);
+        this.cache = new MemoryCache(config.enableCaching !== false ? cacheTTL : 0);
         // Initialize rate limiter
-        this.rateLimiter = new utils_1.RateLimiter(config.rateLimitRPM || 0);
+        this.rateLimiter = new RateLimiter(config.rateLimitRPM || 0);
         // Set up default headers
         this.headers = {
             'Content-Type': 'application/json',
@@ -53,7 +39,7 @@ class OpenRouter {
             ...config.headers
         };
         // Initialize CrewAI
-        this.crewAI = new utils_1.CrewAI();
+        this.crewAI = new CrewAI();
     }
     /**
      * Add middleware to the SDK
@@ -291,11 +277,11 @@ class OpenRouter {
             });
             if (!response.ok) {
                 const errorData = await response.json().catch(() => null);
-                throw new openrouter_error_1.OpenRouterError(`Stream request failed with status ${response.status}`, response.status, errorData);
+                throw new OpenRouterError(`Stream request failed with status ${response.status}`, response.status, errorData);
             }
             const reader = response.body?.getReader();
             if (!reader) {
-                throw new openrouter_error_1.OpenRouterError('Response body is not readable', 0, null);
+                throw new OpenRouterError('Response body is not readable', 0, null);
             }
             const decoder = new TextDecoder();
             let buffer = '';
@@ -429,7 +415,10 @@ class OpenRouter {
             const blob = new Blob([byteArray]);
             formData.append('file', blob, 'audio.mp3');
         }
-        else if (options.file instanceof Blob) {
+        else if (typeof Buffer !== 'undefined' && options.file instanceof Buffer) {
+            formData.append('file', new Blob([options.file]), 'audio.mp3');
+        }
+        else if (options.file instanceof Blob || options.file instanceof File) {
             formData.append('file', options.file);
         }
         else if (options.file instanceof ArrayBuffer) {
@@ -466,7 +455,7 @@ class OpenRouter {
             });
             if (!response.ok) {
                 const errorData = await response.json().catch(() => null);
-                throw new openrouter_error_1.OpenRouterError(`Request failed with status ${response.status}`, response.status, errorData);
+                throw new OpenRouterError(`Request failed with status ${response.status}`, response.status, errorData);
             }
             return await response.json();
         }
@@ -607,7 +596,8 @@ class OpenRouter {
      * ```
      */
     enableWebSearch(modelId, maxResults = 5, searchPrompt) {
-        return utils_1.WebSearch.enableForModel(modelId);
+        // WebSearch.enableForModel only takes modelId in the current implementation
+        return WebSearch.enableForModel(modelId);
     }
     /**
      * Create web search plugin configuration
@@ -629,7 +619,7 @@ class OpenRouter {
      * ```
      */
     createWebSearchPlugin(maxResults = 5, searchPrompt) {
-        return utils_1.WebSearch.createPlugin(maxResults, searchPrompt);
+        return WebSearch.createPlugin(maxResults, searchPrompt);
     }
     /**
      * Apply model suffix for special capabilities
@@ -648,7 +638,7 @@ class OpenRouter {
      * ```
      */
     applyModelSuffix(modelId, suffix) {
-        return utils_1.ProviderRouting.applyModelSuffix(modelId, suffix);
+        return ProviderRouting.applyModelSuffix(modelId, suffix);
     }
     /**
      * Create provider routing preferences for specific ordering
@@ -670,7 +660,7 @@ class OpenRouter {
      * ```
      */
     orderProviders(providerNames, allowFallbacks = true) {
-        return utils_1.ProviderRouting.orderProviders(providerNames, allowFallbacks);
+        return ProviderRouting.orderProviders(providerNames, allowFallbacks);
     }
     /**
      * Create provider routing preferences sorted by price, throughput, or latency
@@ -691,7 +681,7 @@ class OpenRouter {
      * ```
      */
     sortProviders(sortBy) {
-        return utils_1.ProviderRouting.sortProviders(sortBy);
+        return ProviderRouting.sortProviders(sortBy);
     }
     /**
      * Configure reasoning tokens with specific effort level
@@ -713,7 +703,7 @@ class OpenRouter {
      * ```
      */
     setReasoningEffort(level, exclude = false) {
-        return utils_1.Reasoning.setEffort(level, exclude);
+        return Reasoning.setEffort(level, exclude);
     }
     /**
      * Create a JSON object response format
@@ -731,7 +721,7 @@ class OpenRouter {
      * ```
      */
     createJsonResponseFormat() {
-        return utils_1.StructuredOutput.asJson();
+        return StructuredOutput.asJson();
     }
     /**
      * Create a response format with JSON Schema validation
@@ -763,7 +753,7 @@ class OpenRouter {
      * ```
      */
     createSchemaResponseFormat(schema, name = 'output', strict = true) {
-        return utils_1.StructuredOutput.withSchema(schema, name, strict);
+        return StructuredOutput.withSchema(schema, name, strict);
     }
     /**
      * Add fallback models to a request
@@ -935,11 +925,13 @@ class OpenRouter {
     /**
      * Create a new vector database
      *
+     * @template T - Type of vector database configuration
      * @param config - Vector database configuration
      * @returns The created vector database
      *
      * @example
      * ```typescript
+     * // Create a standard in-memory vector database
      * const vectorDb = openRouter.createVectorDb({
      *   dimensions: 1536,
      *   maxVectors: 10000,
@@ -947,11 +939,30 @@ class OpenRouter {
      *   persistToDisk: true,
      *   storagePath: './data/vectordb'
      * });
+     *
+     * // Create a Chroma vector database
+     * const chromaDb = openRouter.createVectorDb({
+     *   dimensions: 1536,
+     *   type: 'chroma',
+     *   chroma: {
+     *     chromaUrl: 'http://localhost:8000',
+     *     collectionPrefix: 'my-app-'
+     *   }
+     * });
      * ```
      */
     createVectorDb(config) {
         const id = `vectordb_${Date.now()}`;
-        const vectorDb = new utils_1.VectorDB(config);
+        // Use the factory function to create the appropriate vector database
+        let vectorDb;
+        if ('type' in config && Object.prototype.hasOwnProperty.call(config, 'type')) {
+            // Extended config with type
+            vectorDb = createVectorDB(config);
+        }
+        else {
+            // Standard config, use in-memory VectorDB
+            vectorDb = new VectorDB(config);
+        }
         this.vectorDbs.set(id, vectorDb);
         return vectorDb;
     }
@@ -1105,7 +1116,7 @@ class OpenRouter {
      * @returns Promise resolving to the response data
      */
     async makeRequest(method, url, data) {
-        return (0, utils_1.retry)(async () => {
+        return retry(async () => {
             const controller = new AbortController();
             this.requestsInFlight.add(controller);
             try {
@@ -1127,7 +1138,7 @@ class OpenRouter {
                 const response = await this.fetchWithTimeout(url, options);
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => null);
-                    throw new openrouter_error_1.OpenRouterError(`Request failed with status ${response.status}`, response.status, errorData);
+                    throw new OpenRouterError(`Request failed with status ${response.status}`, response.status, errorData);
                 }
                 let responseData = await response.json();
                 // Apply post-response middleware
@@ -1195,4 +1206,4 @@ class OpenRouter {
         return controller.signal;
     }
 }
-exports.OpenRouter = OpenRouter;
+//# sourceMappingURL=open-router.js.map

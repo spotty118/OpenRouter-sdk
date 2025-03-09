@@ -156,3 +156,4 @@ export declare class StructuredOutput {
      */
     static enumProperty(values: any[], description?: string): JsonSchemaProperty;
 }
+//# sourceMappingURL=structured-output.d.ts.map

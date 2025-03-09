@@ -11,3 +11,4 @@
  * @returns Approximate token count
  */
 export declare function countTokens(text: string): number;
+//# sourceMappingURL=token-counter.d.ts.map

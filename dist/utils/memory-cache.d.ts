@@ -36,3 +36,4 @@ export declare class MemoryCache<T> implements Cache<T> {
      */
     clear(): void;
 }
+//# sourceMappingURL=memory-cache.d.ts.map

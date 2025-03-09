@@ -22,3 +22,4 @@ export declare class RateLimiter {
      */
     throttle(): Promise<void>;
 }
+//# sourceMappingURL=rate-limiter.d.ts.map

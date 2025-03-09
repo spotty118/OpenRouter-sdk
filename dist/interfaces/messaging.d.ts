@@ -21,3 +21,4 @@ export interface ContentPart {
         detail?: 'low' | 'medium' | 'high' | 'auto';
     };
 }
+//# sourceMappingURL=messaging.d.ts.map

@@ -34,3 +34,4 @@ export interface WebPlugin extends Plugin {
      */
     search_prompt?: string;
 }
+//# sourceMappingURL=plugins.d.ts.map

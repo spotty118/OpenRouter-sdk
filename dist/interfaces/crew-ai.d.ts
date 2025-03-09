@@ -239,3 +239,4 @@ export interface CrewRunStatus {
     /** Any error that caused the run to fail */
     error?: string;
 }
+//# sourceMappingURL=crew-ai.d.ts.map

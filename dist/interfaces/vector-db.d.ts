@@ -39,6 +39,37 @@ export interface VectorDBConfig {
     storagePath?: string;
 }
 /**
+ * Vector database type
+ */
+export declare enum VectorDBType {
+    /** In-memory vector database with optional persistence */
+    InMemory = "in-memory",
+    /** Chroma vector database */
+    Chroma = "chroma"
+}
+/**
+ * Configuration options specific to Chroma
+ */
+export interface ChromaVectorDBConfig extends VectorDBConfig {
+    /** Chroma server URL (default: http://localhost:8000) */
+    chromaUrl?: string;
+    /** Chroma API key if authentication is enabled */
+    chromaApiKey?: string;
+    /** Collection prefix to avoid name collisions */
+    collectionPrefix?: string;
+    /** Whether to use in-memory Chroma instance (default: false) */
+    useInMemory?: boolean;
+}
+/**
+ * Extended vector database configuration with type
+ */
+export interface ExtendedVectorDBConfig extends VectorDBConfig {
+    /** Type of vector database to use */
+    type?: VectorDBType;
+    /** Chroma-specific configuration (only used if type is Chroma) */
+    chroma?: Omit<ChromaVectorDBConfig, keyof VectorDBConfig>;
+}
+/**
  * Options for vector search operations
  */
 export interface VectorSearchOptions {
@@ -140,3 +171,4 @@ export interface IVectorDB {
      */
     load(): Promise<void>;
 }
+//# sourceMappingURL=vector-db.d.ts.map

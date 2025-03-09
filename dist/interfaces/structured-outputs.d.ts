@@ -84,3 +84,4 @@ export interface ResponseFormat {
         schema: JsonSchema;
     };
 }
+//# sourceMappingURL=structured-outputs.d.ts.map

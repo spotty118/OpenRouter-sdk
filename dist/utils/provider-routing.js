@@ -1,16 +1,13 @@
-"use strict";
 /**
  * Provider routing utility functions
  *
  * This module provides utility functions for working with OpenRouter's provider routing capabilities,
  * allowing you to control which providers handle your requests and how fallbacks are managed.
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.ProviderRouting = void 0;
 /**
  * Utility class for working with OpenRouter provider routing
  */
-class ProviderRouting {
+export class ProviderRouting {
     /**
      * Create provider routing preferences
      *
@@ -165,4 +162,4 @@ class ProviderRouting {
         return `${modelId}:${suffix}`;
     }
 }
-exports.ProviderRouting = ProviderRouting;
+//# sourceMappingURL=provider-routing.js.map

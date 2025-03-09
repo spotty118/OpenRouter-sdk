@@ -17,3 +17,4 @@ export declare class OpenRouterError extends Error {
      */
     constructor(message: string, status?: number, data?: any);
 }
+//# sourceMappingURL=openrouter-error.d.ts.map

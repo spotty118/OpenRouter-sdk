@@ -12,6 +12,48 @@ import {
 import { Logger } from './logger';
 import * as fs from 'fs';
 import * as path from 'path';
+import { ChromaVectorDB, ChromaVectorDBConfig } from './chroma-vector-db';
+
+/**
+ * Vector database type
+ */
+export enum VectorDBType {
+  /** In-memory vector database with optional persistence */
+  InMemory = 'in-memory',
+  /** Chroma vector database */
+  Chroma = 'chroma'
+}
+
+/**
+ * Extended vector database configuration with type
+ */
+export interface ExtendedVectorDBConfig extends VectorDBConfig {
+  /** Type of vector database to use */
+  type?: VectorDBType;
+  /** Chroma-specific configuration (only used if type is Chroma) */
+  chroma?: Omit<ChromaVectorDBConfig, keyof VectorDBConfig>;
+}
+
+/**
+ * Create a vector database instance
+ * 
+ * @param config - Configuration options
+ * @returns A vector database instance
+ */
+export function createVectorDB(config: ExtendedVectorDBConfig): IVectorDB {
+  const type = config.type || VectorDBType.InMemory;
+  
+  switch (type) {
+    case VectorDBType.Chroma:
+      return new ChromaVectorDB({
+        ...config,
+        ...config.chroma
+      });
+    case VectorDBType.InMemory:
+    default:
+      return new VectorDB(config);
+  }
+}
 
 /**
  * In-memory vector database with optional persistence

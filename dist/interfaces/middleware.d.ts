@@ -24,3 +24,4 @@ export interface Middleware {
      */
     error?: (error: any) => Promise<any>;
 }
+//# sourceMappingURL=middleware.d.ts.map

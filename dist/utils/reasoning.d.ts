@@ -129,3 +129,4 @@ export declare class Reasoning {
      */
     static fromLegacyParam(includeReasoning: boolean): ReasoningConfig | undefined;
 }
+//# sourceMappingURL=reasoning.d.ts.map

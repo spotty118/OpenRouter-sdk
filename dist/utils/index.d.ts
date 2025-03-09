@@ -14,3 +14,5 @@ export * from './reasoning';
 export * from './structured-output';
 export * from './crew-ai';
 export * from './vector-db';
+export * from './embedding-generator';
+//# sourceMappingURL=index.d.ts.map

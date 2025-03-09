@@ -1,26 +1,22 @@
-"use strict";
 /**
  * Logger utility for OpenRouter SDK
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.Logger = void 0;
 /**
  * Logger implementation
  */
-class Logger {
-    level;
-    levels = {
-        none: 0,
-        error: 1,
-        warn: 2,
-        info: 3,
-        debug: 4
-    };
+export class Logger {
     /**
      * Create a new logger
      * @param level - The log level (default: 'info')
      */
     constructor(level = 'info') {
+        this.levels = {
+            none: 0,
+            error: 1,
+            warn: 2,
+            info: 3,
+            debug: 4
+        };
         this.level = level;
     }
     /**
@@ -64,4 +60,4 @@ class Logger {
         }
     }
 }
-exports.Logger = Logger;
+//# sourceMappingURL=logger.js.map

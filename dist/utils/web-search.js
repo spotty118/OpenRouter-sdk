@@ -1,12 +1,9 @@
-"use strict";
 /**
  * Web search plugin utility for OpenRouter
  *
  * This module provides utility functions for working with OpenRouter's web search plugin,
  * which enables real-time web search capabilities powered by Exa.
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WebSearch = void 0;
 /**
  * Default web search prompt template used by the plugin
  */
@@ -17,7 +14,7 @@ Example: [nytimes.com](https://nytimes.com/some-page).`;
 /**
  * Utility class for working with OpenRouter's web search plugin
  */
-class WebSearch {
+export class WebSearch {
     /**
      * Create a web search plugin configuration
      *
@@ -101,4 +98,4 @@ class WebSearch {
         return DEFAULT_SEARCH_PROMPT;
     }
 }
-exports.WebSearch = WebSearch;
+//# sourceMappingURL=web-search.js.map

@@ -259,3 +259,4 @@ export declare class CrewAI {
      */
     deleteKnowledgeDocument(agentId: string, documentId: string, namespace?: string): Promise<boolean>;
 }
+//# sourceMappingURL=crew-ai.d.ts.map

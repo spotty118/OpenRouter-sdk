@@ -41,3 +41,4 @@ export declare class Logger {
      */
     debug(message: string, ...args: any[]): void;
 }
+//# sourceMappingURL=logger.d.ts.map

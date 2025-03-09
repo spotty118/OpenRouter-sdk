@@ -1,11 +1,8 @@
-"use strict";
 /**
  * Example usage of the AIOrchestrator class
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.runExample = runExample;
-const ai_orchestrator_1 = require("../core/ai-orchestrator");
-const interfaces_1 = require("../interfaces");
+import { AIOrchestrator } from '../core/ai-orchestrator';
+import { ProcessMode } from '../interfaces';
 /**
  * This example demonstrates how to use the AIOrchestrator class to:
  * 1. Create and register functions for AI models to call
@@ -15,7 +12,7 @@ const interfaces_1 = require("../interfaces");
  */
 async function runExample() {
     // Initialize the orchestrator with OpenRouter API key
-    const orchestrator = new ai_orchestrator_1.AIOrchestrator({
+    const orchestrator = new AIOrchestrator({
         apiKey: process.env.OPENROUTER_API_KEY || 'your-api-key',
         defaultModel: 'anthropic/claude-3-opus'
     });
@@ -136,7 +133,7 @@ async function runExample() {
         dependencies: {
             'content-creation': ['market-research'] // Writing task depends on research task
         },
-        processMode: interfaces_1.ProcessMode.HIERARCHICAL
+        processMode: ProcessMode.HIERARCHICAL
     });
     console.log('Executing workflow...');
     // Execute the workflow
@@ -175,3 +172,5 @@ async function runExample() {
 if (require.main === module) {
     runExample().catch(console.error);
 }
+export { runExample };
+//# sourceMappingURL=ai-orchestrator-example.js.map

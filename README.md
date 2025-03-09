@@ -6,6 +6,7 @@ This SDK provides a unified interface for working with AI models through OpenRou
 - **CrewAI Agent Orchestration**: Create and manage multi-agent systems
 - **Vector Databases**: Store and retrieve knowledge with semantic search
 - **Workflows**: Define and execute complex AI workflows with dependencies
+- **RESTful API Server**: Expose all SDK functionality through HTTP endpoints
 
 ## Features
 
@@ -14,6 +15,7 @@ This SDK provides a unified interface for working with AI models through OpenRou
 - **Agent Management**: Create, configure, and orchestrate AI agents
 - **Knowledge Management**: Store and retrieve knowledge with vector databases
 - **Workflow Orchestration**: Define complex workflows with multiple agents and tasks
+- **API Server**: Full-featured REST API for all SDK functionality
 
 ## Installation
 
@@ -179,6 +181,31 @@ const workflow = orchestrator.createWorkflow({
 // Execute workflow
 const results = await orchestrator.executeWorkflow(workflow);
 ```
+
+## API Server
+
+This SDK includes a full-featured API server that exposes all functionality through RESTful endpoints. The API server provides:
+
+- Authentication with API keys
+- Rate limiting
+- Comprehensive error handling
+- Streaming support for chat completions
+- File upload for audio transcription
+- Batch processing endpoints
+
+### Starting the API Server
+
+```bash
+# Start in development mode with auto-reload
+npm run dev
+
+# Start in production mode
+npm start
+```
+
+The server will start on port 3000 by default. You can change this by setting the `PORT` environment variable.
+
+For detailed documentation on all API endpoints, see [API_README.md](API_README.md).
 
 ## Examples
 

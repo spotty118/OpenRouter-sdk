@@ -47,3 +47,4 @@ export declare class MultiModal {
      */
     static content(...parts: ContentPart[]): ContentPart[];
 }
+//# sourceMappingURL=multi-modal.d.ts.map

@@ -25,3 +25,4 @@ export interface ReasoningConfig {
      */
     exclude?: boolean;
 }
+//# sourceMappingURL=reasoning.d.ts.map

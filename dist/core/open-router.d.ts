@@ -540,11 +540,13 @@ export declare class OpenRouter {
     /**
      * Create a new vector database
      *
+     * @template T - Type of vector database configuration
      * @param config - Vector database configuration
      * @returns The created vector database
      *
      * @example
      * ```typescript
+     * // Create a standard in-memory vector database
      * const vectorDb = openRouter.createVectorDb({
      *   dimensions: 1536,
      *   maxVectors: 10000,
@@ -552,9 +554,19 @@ export declare class OpenRouter {
      *   persistToDisk: true,
      *   storagePath: './data/vectordb'
      * });
+     *
+     * // Create a Chroma vector database
+     * const chromaDb = openRouter.createVectorDb({
+     *   dimensions: 1536,
+     *   type: 'chroma',
+     *   chroma: {
+     *     chromaUrl: 'http://localhost:8000',
+     *     collectionPrefix: 'my-app-'
+     *   }
+     * });
      * ```
      */
-    createVectorDb(config: VectorDBConfig): IVectorDB;
+    createVectorDb<T extends VectorDBConfig = VectorDBConfig>(config: T): IVectorDB;
     /**
      * Add a document to an agent's knowledge base
      *
@@ -684,3 +696,4 @@ export declare class OpenRouter {
      */
     private createCombinedSignal;
 }
+//# sourceMappingURL=open-router.d.ts.map

@@ -2,6 +2,32 @@
  * Vector database implementation for knowledge storage and retrieval
  */
 import { IVectorDB, VectorDBConfig, VectorDocument, VectorSearchOptions, VectorSearchResult } from '../interfaces';
+import { ChromaVectorDBConfig } from './chroma-vector-db';
+/**
+ * Vector database type
+ */
+export declare enum VectorDBType {
+    /** In-memory vector database with optional persistence */
+    InMemory = "in-memory",
+    /** Chroma vector database */
+    Chroma = "chroma"
+}
+/**
+ * Extended vector database configuration with type
+ */
+export interface ExtendedVectorDBConfig extends VectorDBConfig {
+    /** Type of vector database to use */
+    type?: VectorDBType;
+    /** Chroma-specific configuration (only used if type is Chroma) */
+    chroma?: Omit<ChromaVectorDBConfig, keyof VectorDBConfig>;
+}
+/**
+ * Create a vector database instance
+ *
+ * @param config - Configuration options
+ * @returns A vector database instance
+ */
+export declare function createVectorDB(config: ExtendedVectorDBConfig): IVectorDB;
 /**
  * In-memory vector database with optional persistence
  *
@@ -147,3 +173,4 @@ export declare class VectorDB implements IVectorDB {
      */
     private dotProduct;
 }
+//# sourceMappingURL=vector-db.d.ts.map

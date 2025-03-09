@@ -45,7 +45,9 @@ import {
   StructuredOutput,
   Reasoning,
   CrewAI,
-  VectorDB
+  VectorDB,
+  createVectorDB,
+  ExtendedVectorDBConfig
 } from '../utils';
 
 import { OpenRouterError } from '../errors/openrouter-error';
@@ -73,7 +75,7 @@ export class OpenRouter {
   private totalCost: number = 0;
   private requestsInFlight: Set<AbortController> = new Set();
   private crewAI: CrewAI;
-  private vectorDbs: Map<string, VectorDB> = new Map();
+  private vectorDbs: Map<string, IVectorDB> = new Map();
 
   /**
    * Create a new OpenRouter SDK instance
@@ -545,7 +547,9 @@ export class OpenRouter {
       const byteArray = new Uint8Array(byteNumbers);
       const blob = new Blob([byteArray]);
       formData.append('file', blob, 'audio.mp3');
-    } else if (options.file instanceof Blob) {
+    } else if (typeof Buffer !== 'undefined' && options.file instanceof Buffer) {
+      formData.append('file', new Blob([options.file]), 'audio.mp3');
+    } else if (options.file instanceof Blob || options.file instanceof File) {
       formData.append('file', options.file);
     } else if (options.file instanceof ArrayBuffer) {
       const blob = new Blob([options.file]);
@@ -742,6 +746,7 @@ export class OpenRouter {
    * ```
    */
   enableWebSearch(modelId: string, maxResults: number = 5, searchPrompt?: string): string {
+    // WebSearch.enableForModel only takes modelId in the current implementation
     return WebSearch.enableForModel(modelId);
   }
 
@@ -1101,11 +1106,13 @@ export class OpenRouter {
   /**
    * Create a new vector database
    * 
+   * @template T - Type of vector database configuration
    * @param config - Vector database configuration
    * @returns The created vector database
    * 
    * @example
    * ```typescript
+   * // Create a standard in-memory vector database
    * const vectorDb = openRouter.createVectorDb({
    *   dimensions: 1536,
    *   maxVectors: 10000,
@@ -1113,11 +1120,32 @@ export class OpenRouter {
    *   persistToDisk: true,
    *   storagePath: './data/vectordb'
    * });
+   * 
+   * // Create a Chroma vector database
+   * const chromaDb = openRouter.createVectorDb({
+   *   dimensions: 1536,
+   *   type: 'chroma',
+   *   chroma: {
+   *     chromaUrl: 'http://localhost:8000',
+   *     collectionPrefix: 'my-app-'
+   *   }
+   * });
    * ```
    */
-  createVectorDb(config: VectorDBConfig): IVectorDB {
+  createVectorDb<T extends VectorDBConfig = VectorDBConfig>(config: T): IVectorDB {
     const id = `vectordb_${Date.now()}`;
-    const vectorDb = new VectorDB(config);
+    
+    // Use the factory function to create the appropriate vector database
+    let vectorDb: IVectorDB;
+    
+    if ('type' in config && Object.prototype.hasOwnProperty.call(config, 'type')) {
+      // Extended config with type
+      vectorDb = createVectorDB(config as ExtendedVectorDBConfig);
+    } else {
+      // Standard config, use in-memory VectorDB
+      vectorDb = new VectorDB(config);
+    }
+    
     this.vectorDbs.set(id, vectorDb);
     return vectorDb;
   }
@@ -1353,7 +1381,7 @@ export class OpenRouter {
             }
           }
           
-          return responseData;
+          return responseData as T;
         } finally {
           this.requestsInFlight.delete(controller);
         }

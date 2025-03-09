@@ -13,3 +13,4 @@ import { Logger } from './logger';
  * @returns Promise resolving to the function result
  */
 export declare function retry<T>(fn: () => Promise<T>, maxRetries: number, logger: Logger, baseDelayMs?: number): Promise<T>;
+//# sourceMappingURL=retry.d.ts.map

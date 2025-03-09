@@ -15,3 +15,4 @@ export { StructuredOutput } from './utils/structured-output';
 export { Reasoning } from './utils/reasoning';
 export { ProviderRouting } from './utils/provider-routing';
 export { OpenRouterError } from './errors/openrouter-error';
+//# sourceMappingURL=index.d.ts.map

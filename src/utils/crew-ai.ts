@@ -22,14 +22,14 @@ import { VectorDocument, VectorSearchOptions, VectorSearchResult } from '../inte
 
 import { Logger } from './logger';
 import { OpenRouterError } from '../errors/openrouter-error';
-import { VectorDB } from './vector-db';
+import { VectorDB, createVectorDB, ExtendedVectorDBConfig, VectorDBType } from './vector-db';
 
 /**
  * CrewAI utility class for orchestrating multiple AI agents
  */
 export class CrewAI {
   private logger: Logger;
-  private vectorDbs: Map<string, VectorDB> = new Map();
+  private vectorDbs: Map<string, VectorDB | any> = new Map();
   
   /**
    * Create a new CrewAI instance
@@ -511,12 +511,21 @@ export class CrewAI {
    * @param config - Vector database configuration
    * @returns The initialized vector database
    */
-  private initializeVectorDb(agentId: string, config: any): VectorDB {
+  private initializeVectorDb(agentId: string, config: any): VectorDB | any {
     if (this.vectorDbs.has(agentId)) {
       return this.vectorDbs.get(agentId)!;
     }
     
-    const vectorDb = new VectorDB(config);
+    let vectorDb;
+    
+    // Check if config has a 'type' property, indicating it's an ExtendedVectorDBConfig
+    if (config.type) {
+      vectorDb = createVectorDB(config as ExtendedVectorDBConfig);
+    } else {
+      // For backward compatibility, create a standard VectorDB
+      vectorDb = new VectorDB(config);
+    }
+    
     this.vectorDbs.set(agentId, vectorDb);
     
     return vectorDb;

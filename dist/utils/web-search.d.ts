@@ -71,3 +71,4 @@ export declare class WebSearch {
      */
     static getDefaultSearchPrompt(): string;
 }
+//# sourceMappingURL=web-search.d.ts.map

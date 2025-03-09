@@ -1,27 +1,23 @@
-"use strict";
 /**
  * CrewAI agent orchestration implementation
  *
  * Provides utilities for creating, managing and orchestrating agents and tasks
  * in a multi-agent system.
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.CrewAI = void 0;
-const interfaces_1 = require("../interfaces");
-const logger_1 = require("./logger");
-const openrouter_error_1 = require("../errors/openrouter-error");
-const vector_db_1 = require("./vector-db");
+import { ProcessMode, TaskStatus } from '../interfaces';
+import { Logger } from './logger';
+import { OpenRouterError } from '../errors/openrouter-error';
+import { VectorDB, createVectorDB } from './vector-db';
 /**
  * CrewAI utility class for orchestrating multiple AI agents
  */
-class CrewAI {
-    logger;
-    vectorDbs = new Map();
+export class CrewAI {
     /**
      * Create a new CrewAI instance
      */
     constructor() {
-        this.logger = new logger_1.Logger('info');
+        this.vectorDbs = new Map();
+        this.logger = new Logger('info');
     }
     /**
      * Create a new agent with specified capabilities
@@ -44,13 +40,13 @@ class CrewAI {
     createAgent(agentConfig) {
         // Validate required fields
         if (!agentConfig.id) {
-            throw new openrouter_error_1.OpenRouterError('Agent ID is required', 400, null);
+            throw new OpenRouterError('Agent ID is required', 400, null);
         }
         if (!agentConfig.name) {
-            throw new openrouter_error_1.OpenRouterError('Agent name is required', 400, null);
+            throw new OpenRouterError('Agent name is required', 400, null);
         }
         if (!agentConfig.model) {
-            throw new openrouter_error_1.OpenRouterError('Agent model is required', 400, null);
+            throw new OpenRouterError('Agent model is required', 400, null);
         }
         // Initialize vector database if configured
         if (agentConfig.memory?.vectorDb) {
@@ -79,16 +75,16 @@ class CrewAI {
     createTask(taskConfig) {
         // Validate required fields
         if (!taskConfig.id) {
-            throw new openrouter_error_1.OpenRouterError('Task ID is required', 400, null);
+            throw new OpenRouterError('Task ID is required', 400, null);
         }
         if (!taskConfig.name) {
-            throw new openrouter_error_1.OpenRouterError('Task name is required', 400, null);
+            throw new OpenRouterError('Task name is required', 400, null);
         }
         if (!taskConfig.description) {
-            throw new openrouter_error_1.OpenRouterError('Task description is required', 400, null);
+            throw new OpenRouterError('Task description is required', 400, null);
         }
         if (!taskConfig.assignedAgentId) {
-            throw new openrouter_error_1.OpenRouterError('Task must be assigned to an agent', 400, null);
+            throw new OpenRouterError('Task must be assigned to an agent', 400, null);
         }
         this.logger.debug(`Created task: ${taskConfig.name} (${taskConfig.id})`);
         return taskConfig;
@@ -115,25 +111,25 @@ class CrewAI {
     createWorkflow(workflowConfig) {
         // Validate required fields
         if (!workflowConfig.id) {
-            throw new openrouter_error_1.OpenRouterError('Workflow ID is required', 400, null);
+            throw new OpenRouterError('Workflow ID is required', 400, null);
         }
         if (!workflowConfig.name) {
-            throw new openrouter_error_1.OpenRouterError('Workflow name is required', 400, null);
+            throw new OpenRouterError('Workflow name is required', 400, null);
         }
         if (!workflowConfig.tasks || workflowConfig.tasks.length === 0) {
-            throw new openrouter_error_1.OpenRouterError('Workflow must include at least one task', 400, null);
+            throw new OpenRouterError('Workflow must include at least one task', 400, null);
         }
         // Validate task dependencies
         if (workflowConfig.dependencies) {
             for (const [taskId, dependsOn] of Object.entries(workflowConfig.dependencies)) {
                 // Check if the task exists
                 if (!workflowConfig.tasks.some(task => task.id === taskId)) {
-                    throw new openrouter_error_1.OpenRouterError(`Invalid task dependency: Task ${taskId} not found in workflow`, 400, null);
+                    throw new OpenRouterError(`Invalid task dependency: Task ${taskId} not found in workflow`, 400, null);
                 }
                 // Check if dependency tasks exist
                 for (const depTaskId of dependsOn) {
                     if (!workflowConfig.tasks.some(task => task.id === depTaskId)) {
-                        throw new openrouter_error_1.OpenRouterError(`Invalid task dependency: Dependent task ${depTaskId} not found in workflow`, 400, null);
+                        throw new OpenRouterError(`Invalid task dependency: Dependent task ${depTaskId} not found in workflow`, 400, null);
                     }
                 }
             }
@@ -162,19 +158,19 @@ class CrewAI {
     createCrew(crewConfig) {
         // Validate required fields
         if (!crewConfig.id) {
-            throw new openrouter_error_1.OpenRouterError('Crew ID is required', 400, null);
+            throw new OpenRouterError('Crew ID is required', 400, null);
         }
         if (!crewConfig.name) {
-            throw new openrouter_error_1.OpenRouterError('Crew name is required', 400, null);
+            throw new OpenRouterError('Crew name is required', 400, null);
         }
         if (!crewConfig.agents || crewConfig.agents.length === 0) {
-            throw new openrouter_error_1.OpenRouterError('Crew must include at least one agent', 400, null);
+            throw new OpenRouterError('Crew must include at least one agent', 400, null);
         }
         // Check for duplicate agent IDs
         const agentIds = new Set();
         for (const agent of crewConfig.agents) {
             if (agentIds.has(agent.id)) {
-                throw new openrouter_error_1.OpenRouterError(`Duplicate agent ID: ${agent.id}`, 400, null);
+                throw new OpenRouterError(`Duplicate agent ID: ${agent.id}`, 400, null);
             }
             agentIds.add(agent.id);
         }
@@ -216,7 +212,7 @@ class CrewAI {
             const result = {
                 taskId: task.id,
                 agentId: agent.id,
-                status: interfaces_1.TaskStatus.COMPLETED,
+                status: TaskStatus.COMPLETED,
                 output: `Task ${task.name} completed successfully with agent ${agent.name}`,
                 completedAt: new Date()
             };
@@ -229,7 +225,7 @@ class CrewAI {
             const errorResult = {
                 taskId: task.id,
                 agentId: agent.id,
-                status: interfaces_1.TaskStatus.FAILED,
+                status: TaskStatus.FAILED,
                 output: '',
                 error: error instanceof Error ? error.message : String(error),
                 completedAt: new Date()
@@ -263,23 +259,23 @@ class CrewAI {
     async executeWorkflow(workflow, agents, config, callbacks) {
         this.logger.info(`Executing workflow: ${workflow.name} (${workflow.id}) with ${workflow.tasks.length} tasks`);
         const results = {};
-        const processMode = config?.processMode || workflow.processMode || interfaces_1.ProcessMode.SEQUENTIAL;
-        if (processMode === interfaces_1.ProcessMode.SEQUENTIAL) {
+        const processMode = config?.processMode || workflow.processMode || ProcessMode.SEQUENTIAL;
+        if (processMode === ProcessMode.SEQUENTIAL) {
             // Execute tasks sequentially
             for (const task of workflow.tasks) {
                 const agent = agents[task.assignedAgentId];
                 if (!agent) {
-                    throw new openrouter_error_1.OpenRouterError(`Agent not found for task: ${task.id} (assigned to ${task.assignedAgentId})`, 400, null);
+                    throw new OpenRouterError(`Agent not found for task: ${task.id} (assigned to ${task.assignedAgentId})`, 400, null);
                 }
                 results[task.id] = await this.executeTask(task, agent, config, callbacks);
             }
         }
-        else if (processMode === interfaces_1.ProcessMode.PARALLEL) {
+        else if (processMode === ProcessMode.PARALLEL) {
             // Execute tasks in parallel
             const promises = workflow.tasks.map(async (task) => {
                 const agent = agents[task.assignedAgentId];
                 if (!agent) {
-                    throw new openrouter_error_1.OpenRouterError(`Agent not found for task: ${task.id} (assigned to ${task.assignedAgentId})`, 400, null);
+                    throw new OpenRouterError(`Agent not found for task: ${task.id} (assigned to ${task.assignedAgentId})`, 400, null);
                 }
                 return this.executeTask(task, agent, config, callbacks);
             });
@@ -288,10 +284,10 @@ class CrewAI {
                 results[task.id] = taskResults[index];
             });
         }
-        else if (processMode === interfaces_1.ProcessMode.HIERARCHICAL) {
+        else if (processMode === ProcessMode.HIERARCHICAL) {
             // Execute tasks based on their dependencies
             if (!workflow.dependencies) {
-                throw new openrouter_error_1.OpenRouterError('Hierarchical execution requires task dependencies', 400, null);
+                throw new OpenRouterError('Hierarchical execution requires task dependencies', 400, null);
             }
             // Build dependency graph
             const dependencyGraph = {};
@@ -305,13 +301,13 @@ class CrewAI {
                 const readyTasks = workflow.tasks.filter(task => !completed.has(task.id) &&
                     (dependencyGraph[task.id]?.every(dep => completed.has(dep)) ?? true));
                 if (readyTasks.length === 0) {
-                    throw new openrouter_error_1.OpenRouterError('Circular dependency detected in workflow', 400, null);
+                    throw new OpenRouterError('Circular dependency detected in workflow', 400, null);
                 }
                 // Execute ready tasks in parallel
                 const promises = readyTasks.map(async (task) => {
                     const agent = agents[task.assignedAgentId];
                     if (!agent) {
-                        throw new openrouter_error_1.OpenRouterError(`Agent not found for task: ${task.id} (assigned to ${task.assignedAgentId})`, 400, null);
+                        throw new OpenRouterError(`Agent not found for task: ${task.id} (assigned to ${task.assignedAgentId})`, 400, null);
                     }
                     return { taskId: task.id, result: await this.executeTask(task, agent, config, callbacks) };
                 });
@@ -323,7 +319,7 @@ class CrewAI {
             }
         }
         else {
-            throw new openrouter_error_1.OpenRouterError(`Unsupported process mode: ${processMode}`, 400, null);
+            throw new OpenRouterError(`Unsupported process mode: ${processMode}`, 400, null);
         }
         return results;
     }
@@ -361,7 +357,7 @@ class CrewAI {
         };
         // Initialize task statuses
         tasks.forEach(task => {
-            status.taskStatuses[task.id] = interfaces_1.TaskStatus.PENDING;
+            status.taskStatuses[task.id] = TaskStatus.PENDING;
         });
         try {
             // Create a map of agents by ID for easy lookup
@@ -372,7 +368,7 @@ class CrewAI {
             // Create internal callbacks to track status
             const internalCallbacks = {
                 onTaskStart: (taskId, agentId) => {
-                    status.taskStatuses[taskId] = interfaces_1.TaskStatus.IN_PROGRESS;
+                    status.taskStatuses[taskId] = TaskStatus.IN_PROGRESS;
                     callbacks?.onTaskStart?.(taskId, agentId);
                 },
                 onTaskComplete: (result) => {
@@ -381,40 +377,40 @@ class CrewAI {
                     callbacks?.onTaskComplete?.(result);
                 },
                 onTaskError: (taskId, error) => {
-                    status.taskStatuses[taskId] = interfaces_1.TaskStatus.FAILED;
+                    status.taskStatuses[taskId] = TaskStatus.FAILED;
                     callbacks?.onTaskError?.(taskId, error);
                 },
                 onTaskApprovalRequired: callbacks?.onTaskApprovalRequired
             };
             // Process mode
-            const processMode = config?.processMode || crew.processMode || interfaces_1.ProcessMode.SEQUENTIAL;
-            if (processMode === interfaces_1.ProcessMode.SEQUENTIAL) {
+            const processMode = config?.processMode || crew.processMode || ProcessMode.SEQUENTIAL;
+            if (processMode === ProcessMode.SEQUENTIAL) {
                 // Execute tasks sequentially
                 for (const task of tasks) {
                     const agent = agentMap[task.assignedAgentId];
                     if (!agent) {
-                        throw new openrouter_error_1.OpenRouterError(`Agent not found for task: ${task.id} (assigned to ${task.assignedAgentId})`, 400, null);
+                        throw new OpenRouterError(`Agent not found for task: ${task.id} (assigned to ${task.assignedAgentId})`, 400, null);
                     }
                     const result = await this.executeTask(task, agent, config, internalCallbacks);
                     // Check for failure and handle based on crew configuration
-                    if (result.status === interfaces_1.TaskStatus.FAILED && !crew.failureHandling?.continueOnFailure) {
+                    if (result.status === TaskStatus.FAILED && !crew.failureHandling?.continueOnFailure) {
                         throw new Error(`Task ${task.id} failed: ${result.error}`);
                     }
                 }
             }
-            else if (processMode === interfaces_1.ProcessMode.PARALLEL) {
+            else if (processMode === ProcessMode.PARALLEL) {
                 // Execute all tasks in parallel
                 const promises = tasks.map(async (task) => {
                     const agent = agentMap[task.assignedAgentId];
                     if (!agent) {
-                        throw new openrouter_error_1.OpenRouterError(`Agent not found for task: ${task.id} (assigned to ${task.assignedAgentId})`, 400, null);
+                        throw new OpenRouterError(`Agent not found for task: ${task.id} (assigned to ${task.assignedAgentId})`, 400, null);
                     }
                     return this.executeTask(task, agent, config, internalCallbacks);
                 });
                 await Promise.all(promises);
             }
             else {
-                throw new openrouter_error_1.OpenRouterError(`Unsupported process mode: ${processMode}`, 400, null);
+                throw new OpenRouterError(`Unsupported process mode: ${processMode}`, 400, null);
             }
             // Update final status
             status.status = 'completed';
@@ -441,7 +437,15 @@ class CrewAI {
         if (this.vectorDbs.has(agentId)) {
             return this.vectorDbs.get(agentId);
         }
-        const vectorDb = new vector_db_1.VectorDB(config);
+        let vectorDb;
+        // Check if config has a 'type' property, indicating it's an ExtendedVectorDBConfig
+        if (config.type) {
+            vectorDb = createVectorDB(config);
+        }
+        else {
+            // For backward compatibility, create a standard VectorDB
+            vectorDb = new VectorDB(config);
+        }
         this.vectorDbs.set(agentId, vectorDb);
         return vectorDb;
     }
@@ -468,7 +472,7 @@ class CrewAI {
     async addKnowledge(agentId, document, namespace) {
         const vectorDb = this.vectorDbs.get(agentId);
         if (!vectorDb) {
-            throw new openrouter_error_1.OpenRouterError(`Vector database not initialized for agent: ${agentId}`, 400, null);
+            throw new OpenRouterError(`Vector database not initialized for agent: ${agentId}`, 400, null);
         }
         return vectorDb.addDocument(document, namespace);
     }
@@ -502,7 +506,7 @@ class CrewAI {
     async addKnowledgeBatch(agentId, documents, namespace) {
         const vectorDb = this.vectorDbs.get(agentId);
         if (!vectorDb) {
-            throw new openrouter_error_1.OpenRouterError(`Vector database not initialized for agent: ${agentId}`, 400, null);
+            throw new OpenRouterError(`Vector database not initialized for agent: ${agentId}`, 400, null);
         }
         return vectorDb.addDocuments(documents, namespace);
     }
@@ -526,7 +530,7 @@ class CrewAI {
     async searchKnowledge(agentId, text, options) {
         const vectorDb = this.vectorDbs.get(agentId);
         if (!vectorDb) {
-            throw new openrouter_error_1.OpenRouterError(`Vector database not initialized for agent: ${agentId}`, 400, null);
+            throw new OpenRouterError(`Vector database not initialized for agent: ${agentId}`, 400, null);
         }
         return vectorDb.searchByText(text, options);
     }
@@ -546,7 +550,7 @@ class CrewAI {
     async getKnowledgeDocument(agentId, documentId, namespace) {
         const vectorDb = this.vectorDbs.get(agentId);
         if (!vectorDb) {
-            throw new openrouter_error_1.OpenRouterError(`Vector database not initialized for agent: ${agentId}`, 400, null);
+            throw new OpenRouterError(`Vector database not initialized for agent: ${agentId}`, 400, null);
         }
         return vectorDb.getDocument(documentId, namespace);
     }
@@ -566,9 +570,9 @@ class CrewAI {
     async deleteKnowledgeDocument(agentId, documentId, namespace) {
         const vectorDb = this.vectorDbs.get(agentId);
         if (!vectorDb) {
-            throw new openrouter_error_1.OpenRouterError(`Vector database not initialized for agent: ${agentId}`, 400, null);
+            throw new OpenRouterError(`Vector database not initialized for agent: ${agentId}`, 400, null);
         }
         return vectorDb.deleteDocument(documentId, namespace);
     }
 }
-exports.CrewAI = CrewAI;
+//# sourceMappingURL=crew-ai.js.map
