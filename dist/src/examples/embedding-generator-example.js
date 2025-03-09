@@ -1,22 +1,24 @@
+"use strict";
 /**
  * Example demonstrating the use of EmbeddingGenerator with ChromaDB
  */
-import { OpenRouter } from '../core/open-router';
-import { EmbeddingGenerator } from '../utils/embedding-generator';
-import { VectorDBType } from '../interfaces/vector-db';
+Object.defineProperty(exports, "__esModule", { value: true });
+const open_router_1 = require("../core/open-router");
+const embedding_generator_1 = require("../utils/embedding-generator");
+const vector_db_1 = require("../interfaces/vector-db");
 /**
  * This example demonstrates how to use the EmbeddingGenerator with ChromaDB
  * for generating embeddings and performing semantic search.
  */
 async function main() {
     // Initialize OpenRouter with your API key
-    const openRouter = new OpenRouter({
+    const openRouter = new open_router_1.OpenRouter({
         apiKey: process.env.OPENROUTER_API_KEY || 'your-api-key-here',
         defaultModel: 'anthropic/claude-3-opus'
     });
     console.log('Creating embedding generator...');
     // Create an embedding generator
-    const embeddingGenerator = new EmbeddingGenerator({
+    const embeddingGenerator = new embedding_generator_1.EmbeddingGenerator({
         dimensions: 1536,
         apiKey: process.env.OPENAI_API_KEY || '',
         model: 'text-embedding-3-small',
@@ -27,7 +29,7 @@ async function main() {
     const vectorDb = openRouter.createVectorDb({
         dimensions: 1536,
         similarityMetric: 'cosine',
-        type: VectorDBType.Chroma,
+        type: vector_db_1.VectorDBType.Chroma,
         chroma: {
             chromaUrl: 'http://localhost:8000',
             collectionPrefix: 'embedding-example-',

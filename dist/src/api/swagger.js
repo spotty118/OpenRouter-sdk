@@ -1,19 +1,25 @@
+"use strict";
 /**
  * OpenAPI/Swagger Documentation
  *
  * This file sets up OpenAPI/Swagger documentation for the API.
  */
-import express from 'express';
-import swaggerJsdoc from 'swagger-jsdoc';
-import swaggerUi from 'swagger-ui-express';
-import { version } from '../../package.json';
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.swaggerRouter = void 0;
+const express_1 = __importDefault(require("express"));
+const swagger_jsdoc_1 = __importDefault(require("swagger-jsdoc"));
+const swagger_ui_express_1 = __importDefault(require("swagger-ui-express"));
+const package_json_1 = require("../../package.json");
 // Swagger definition
 const swaggerOptions = {
     definition: {
         openapi: '3.0.0',
         info: {
             title: 'OpenRouter SDK API',
-            version,
+            version: package_json_1.version,
             description: 'API documentation for the OpenRouter SDK',
             license: {
                 name: 'MIT',
@@ -48,16 +54,16 @@ const swaggerOptions = {
     },
     apis: ['./src/api/routes/*.ts'], // Path to the API routes
 };
-const swaggerSpec = swaggerJsdoc(swaggerOptions);
+const swaggerSpec = (0, swagger_jsdoc_1.default)(swaggerOptions);
 // Create a router for Swagger endpoints
-const swaggerRouter = express.Router();
+const swaggerRouter = express_1.default.Router();
+exports.swaggerRouter = swaggerRouter;
 // Serve Swagger UI
-swaggerRouter.use('/', swaggerUi.serve);
-swaggerRouter.get('/', swaggerUi.setup(swaggerSpec));
+swaggerRouter.use('/', swagger_ui_express_1.default.serve);
+swaggerRouter.get('/', swagger_ui_express_1.default.setup(swaggerSpec));
 // Serve Swagger spec as JSON
 swaggerRouter.get('/swagger.json', (req, res) => {
     res.setHeader('Content-Type', 'application/json');
     res.send(swaggerSpec);
 });
-export { swaggerRouter };
 //# sourceMappingURL=swagger.js.map

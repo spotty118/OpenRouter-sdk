@@ -1,5 +1,6 @@
+"use strict";
 /**
  * Chat messaging interfaces
  */
-export {};
+Object.defineProperty(exports, "__esModule", { value: true });
 //# sourceMappingURL=messaging.js.map

@@ -1,7 +1,10 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.MultiModal = void 0;
 /**
  * Helper class for creating multimodal content
  */
-export class MultiModal {
+class MultiModal {
     /**
      * Create a text content part
      *
@@ -49,4 +52,5 @@ export class MultiModal {
         return parts;
     }
 }
+exports.MultiModal = MultiModal;
 //# sourceMappingURL=multi-modal.js.map

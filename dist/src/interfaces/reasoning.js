@@ -1,5 +1,6 @@
+"use strict";
 /**
  * Reasoning tokens interfaces
  */
-export {};
+Object.defineProperty(exports, "__esModule", { value: true });
 //# sourceMappingURL=reasoning.js.map

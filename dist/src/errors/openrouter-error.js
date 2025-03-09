@@ -1,10 +1,13 @@
+"use strict";
 /**
  * Custom error class for OpenRouter API errors
  */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.OpenRouterError = void 0;
 /**
  * Represents an error returned by the OpenRouter API
  */
-export class OpenRouterError extends Error {
+class OpenRouterError extends Error {
     /**
      * Create a new OpenRouter error
      * @param message - Error message
@@ -18,4 +21,5 @@ export class OpenRouterError extends Error {
         this.data = data;
     }
 }
+exports.OpenRouterError = OpenRouterError;
 //# sourceMappingURL=openrouter-error.js.map

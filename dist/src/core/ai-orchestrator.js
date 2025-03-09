@@ -1,17 +1,20 @@
+"use strict";
 /**
  * AI Orchestrator - Integrated system combining OpenRouter, CrewAI, and Vector DB
  *
  * This class provides a unified interface for working with AI models, agent orchestration,
  * function calling, and knowledge management through vector databases.
  */
-import { OpenRouter } from './open-router';
-import { FunctionCalling } from '../utils/function-calling';
-import { Logger } from '../utils/logger';
-import { OpenRouterError } from '../errors/openrouter-error';
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.AIOrchestrator = void 0;
+const open_router_1 = require("./open-router");
+const function_calling_1 = require("../utils/function-calling");
+const logger_1 = require("../utils/logger");
+const openrouter_error_1 = require("../errors/openrouter-error");
 /**
  * AI Orchestrator class that integrates OpenRouter, CrewAI, and Vector DB capabilities
  */
-export class AIOrchestrator {
+class AIOrchestrator {
     /**
      * Create a new AI Orchestrator instance
      *
@@ -24,8 +27,8 @@ export class AIOrchestrator {
         this.workflowRegistry = new Map();
         this.crewRegistry = new Map();
         this.vectorDbRegistry = new Map();
-        this.openRouter = new OpenRouter(config);
-        this.logger = new Logger(config.logLevel || 'info');
+        this.openRouter = new open_router_1.OpenRouter(config);
+        this.logger = new logger_1.Logger(config.logLevel || 'info');
     }
     /**
      * Get the underlying OpenRouter instance
@@ -70,7 +73,7 @@ export class AIOrchestrator {
      * ```
      */
     registerFunction(name, description, parameters, required = [], implementation) {
-        const functionDef = FunctionCalling.createFunctionDefinition(name, description, parameters, required);
+        const functionDef = function_calling_1.FunctionCalling.createFunctionDefinition(name, description, parameters, required);
         this.functionRegistry.set(name, implementation);
         this.logger.debug(`Registered function: ${name}`);
         return functionDef;
@@ -104,7 +107,7 @@ export class AIOrchestrator {
         for (const [name, implementation] of this.functionRegistry.entries()) {
             functionMap[name] = implementation;
         }
-        return FunctionCalling.executeToolCalls(toolCalls, functionMap);
+        return function_calling_1.FunctionCalling.executeToolCalls(toolCalls, functionMap);
     }
     /**
      * Send a chat completion request with integrated function calling
@@ -129,7 +132,7 @@ export class AIOrchestrator {
         if (!options.tools && this.functionRegistry.size > 0) {
             const tools = [];
             for (const [name, _] of this.functionRegistry.entries()) {
-                const functionDef = FunctionCalling.createFunctionDefinition(name, '', // Description will be filled from registry in a real implementation
+                const functionDef = function_calling_1.FunctionCalling.createFunctionDefinition(name, '', // Description will be filled from registry in a real implementation
                 {} // Parameters will be filled from registry in a real implementation
                 );
                 tools.push({
@@ -254,7 +257,7 @@ export class AIOrchestrator {
         if (typeof taskId === 'string') {
             const registeredTask = this.taskRegistry.get(taskId);
             if (!registeredTask) {
-                throw new OpenRouterError(`Task not found: ${taskId}`, 400, null);
+                throw new openrouter_error_1.OpenRouterError(`Task not found: ${taskId}`, 400, null);
             }
             task = registeredTask;
         }
@@ -266,7 +269,7 @@ export class AIOrchestrator {
         if (typeof agentId === 'string') {
             const registeredAgent = this.agentRegistry.get(agentId);
             if (!registeredAgent) {
-                throw new OpenRouterError(`Agent not found: ${agentId}`, 400, null);
+                throw new openrouter_error_1.OpenRouterError(`Agent not found: ${agentId}`, 400, null);
             }
             agent = registeredAgent;
         }
@@ -294,7 +297,7 @@ export class AIOrchestrator {
         if (typeof workflowId === 'string') {
             const registeredWorkflow = this.workflowRegistry.get(workflowId);
             if (!registeredWorkflow) {
-                throw new OpenRouterError(`Workflow not found: ${workflowId}`, 400, null);
+                throw new openrouter_error_1.OpenRouterError(`Workflow not found: ${workflowId}`, 400, null);
             }
             workflow = registeredWorkflow;
         }
@@ -306,7 +309,7 @@ export class AIOrchestrator {
         for (const task of workflow.tasks) {
             const agent = this.agentRegistry.get(task.assignedAgentId);
             if (!agent) {
-                throw new OpenRouterError(`Agent not found for task: ${task.id} (assigned to ${task.assignedAgentId})`, 400, null);
+                throw new openrouter_error_1.OpenRouterError(`Agent not found for task: ${task.id} (assigned to ${task.assignedAgentId})`, 400, null);
             }
             agents[task.assignedAgentId] = agent;
         }
@@ -335,7 +338,7 @@ export class AIOrchestrator {
         if (typeof crewId === 'string') {
             const registeredCrew = this.crewRegistry.get(crewId);
             if (!registeredCrew) {
-                throw new OpenRouterError(`Crew not found: ${crewId}`, 400, null);
+                throw new openrouter_error_1.OpenRouterError(`Crew not found: ${crewId}`, 400, null);
             }
             crew = registeredCrew;
         }
@@ -348,7 +351,7 @@ export class AIOrchestrator {
             if (typeof taskId === 'string') {
                 const registeredTask = this.taskRegistry.get(taskId);
                 if (!registeredTask) {
-                    throw new OpenRouterError(`Task not found: ${taskId}`, 400, null);
+                    throw new openrouter_error_1.OpenRouterError(`Task not found: ${taskId}`, 400, null);
                 }
                 tasks.push(registeredTask);
             }
@@ -416,7 +419,7 @@ export class AIOrchestrator {
     async addDocument(dbId, document, namespace) {
         const vectorDb = this.vectorDbRegistry.get(dbId);
         if (!vectorDb) {
-            throw new OpenRouterError(`Vector database not found: ${dbId}`, 400, null);
+            throw new openrouter_error_1.OpenRouterError(`Vector database not found: ${dbId}`, 400, null);
         }
         return vectorDb.addDocument(document, namespace);
     }
@@ -450,7 +453,7 @@ export class AIOrchestrator {
     async addDocuments(dbId, documents, namespace) {
         const vectorDb = this.vectorDbRegistry.get(dbId);
         if (!vectorDb) {
-            throw new OpenRouterError(`Vector database not found: ${dbId}`, 400, null);
+            throw new openrouter_error_1.OpenRouterError(`Vector database not found: ${dbId}`, 400, null);
         }
         return vectorDb.addDocuments(documents, namespace);
     }
@@ -474,7 +477,7 @@ export class AIOrchestrator {
     async searchByText(dbId, text, options) {
         const vectorDb = this.vectorDbRegistry.get(dbId);
         if (!vectorDb) {
-            throw new OpenRouterError(`Vector database not found: ${dbId}`, 400, null);
+            throw new openrouter_error_1.OpenRouterError(`Vector database not found: ${dbId}`, 400, null);
         }
         return vectorDb.searchByText(text, options);
     }
@@ -615,4 +618,5 @@ export class AIOrchestrator {
         return result;
     }
 }
+exports.AIOrchestrator = AIOrchestrator;
 //# sourceMappingURL=ai-orchestrator.js.map

@@ -1,5 +1,6 @@
+"use strict";
 /**
  * Configuration interfaces for OpenRouter
  */
-export {};
+Object.defineProperty(exports, "__esModule", { value: true });
 //# sourceMappingURL=config.js.map

@@ -1,5 +1,6 @@
+"use strict";
 /**
  * Middleware interfaces for request/response processing
  */
-export {};
+Object.defineProperty(exports, "__esModule", { value: true });
 //# sourceMappingURL=middleware.js.map

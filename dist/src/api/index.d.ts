@@ -3,7 +3,8 @@
  *
  * This file exports the Express app and provides a function to start the server.
  */
-import app from './server';
+import { Application } from 'express';
+declare const app: Application;
 /**
  * Start the API server
  *
@@ -11,5 +12,5 @@ import app from './server';
  * @returns The Express server instance
  */
 export declare function startServer(port?: number): any;
-export default app;
+export { app as default };
 //# sourceMappingURL=index.d.ts.map

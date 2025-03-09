@@ -1,11 +1,14 @@
+"use strict";
 /**
  * Rate Limiter Middleware
  *
  * This middleware implements rate limiting for API requests based on API keys.
  */
-import { Logger } from '../../utils/logger';
-import { RateLimiter as SDKRateLimiter } from '../../utils/rate-limiter';
-const logger = new Logger('info');
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.rateLimiter = void 0;
+const logger_1 = require("../../utils/logger");
+const rate_limiter_1 = require("../../utils/rate-limiter");
+const logger = new logger_1.Logger('info');
 // Store rate limiters by API key
 const rateLimiters = new Map();
 // Default rate limit (requests per minute)
@@ -19,7 +22,7 @@ const DEFAULT_RATE_LIMIT = 60;
  * @param res - Express response object
  * @param next - Express next function
  */
-export const rateLimiter = async (req, res, next) => {
+const rateLimiter = async (req, res, next) => {
     // Skip rate limiting for health check endpoint
     if (req.path === '/health') {
         return next();
@@ -35,7 +38,7 @@ export const rateLimiter = async (req, res, next) => {
     if (!limiter) {
         // TODO: In a production environment, rate limits could be stored in a database
         // and retrieved based on the API key's tier/plan
-        limiter = new SDKRateLimiter(DEFAULT_RATE_LIMIT);
+        limiter = new rate_limiter_1.RateLimiter(DEFAULT_RATE_LIMIT);
         rateLimiters.set(apiKey, limiter);
     }
     try {
@@ -54,4 +57,5 @@ export const rateLimiter = async (req, res, next) => {
         });
     }
 };
+exports.rateLimiter = rateLimiter;
 //# sourceMappingURL=rate-limiter.js.map

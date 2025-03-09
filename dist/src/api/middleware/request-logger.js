@@ -1,10 +1,13 @@
+"use strict";
 /**
  * Request Logger Middleware
  *
  * This middleware logs information about incoming requests and their responses.
  */
-import { Logger } from '../../utils/logger';
-const logger = new Logger('info');
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.requestLogger = void 0;
+const logger_1 = require("../../utils/logger");
+const logger = new logger_1.Logger('info');
 /**
  * Request logger middleware
  *
@@ -14,7 +17,7 @@ const logger = new Logger('info');
  * @param res - Express response object
  * @param next - Express next function
  */
-export const requestLogger = (req, res, next) => {
+const requestLogger = (req, res, next) => {
     // Skip logging for health check endpoint to avoid noise in logs
     if (req.path === '/health') {
         return next();
@@ -49,4 +52,5 @@ export const requestLogger = (req, res, next) => {
     };
     next();
 };
+exports.requestLogger = requestLogger;
 //# sourceMappingURL=request-logger.js.map

@@ -1,5 +1,6 @@
+"use strict";
 /**
  * Cache interfaces for data storage
  */
-export {};
+Object.defineProperty(exports, "__esModule", { value: true });
 //# sourceMappingURL=cache.js.map

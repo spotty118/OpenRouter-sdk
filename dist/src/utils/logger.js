@@ -1,10 +1,13 @@
+"use strict";
 /**
  * Logger utility for OpenRouter SDK
  */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.Logger = void 0;
 /**
  * Logger implementation
  */
-export class Logger {
+class Logger {
     /**
      * Create a new logger
      * @param level - The log level (default: 'info')
@@ -60,4 +63,5 @@ export class Logger {
         }
     }
 }
+exports.Logger = Logger;
 //# sourceMappingURL=logger.js.map

@@ -1,15 +1,17 @@
+"use strict";
 /**
  * Example demonstrating the use of ChromaVectorDB with OpenRouter SDK
  */
-import { OpenRouter } from '../core/open-router';
-import { VectorDBType } from '../interfaces/vector-db';
+Object.defineProperty(exports, "__esModule", { value: true });
+const open_router_1 = require("../core/open-router");
+const vector_db_1 = require("../interfaces/vector-db");
 /**
  * This example demonstrates how to use the ChromaVectorDB integration
  * with the OpenRouter SDK for knowledge storage and retrieval.
  */
 async function main() {
     // Initialize OpenRouter with your API key
-    const openRouter = new OpenRouter({
+    const openRouter = new open_router_1.OpenRouter({
         apiKey: process.env.OPENROUTER_API_KEY || 'your-api-key-here',
         defaultModel: 'anthropic/claude-3-opus'
     });
@@ -18,7 +20,7 @@ async function main() {
     const vectorDb = openRouter.createVectorDb({
         dimensions: 1536,
         similarityMetric: 'cosine', // Set similarity metric at the top level
-        type: VectorDBType.Chroma,
+        type: vector_db_1.VectorDBType.Chroma,
         chroma: {
             chromaUrl: 'http://localhost:8000',
             collectionPrefix: 'openrouter-example-',
@@ -115,7 +117,7 @@ async function main() {
         memory: {
             vectorDb: {
                 dimensions: 1536,
-                type: VectorDBType.Chroma,
+                type: vector_db_1.VectorDBType.Chroma,
                 chroma: {
                     chromaUrl: 'http://localhost:8000',
                     collectionPrefix: 'agent-',

@@ -1,41 +1,46 @@
+"use strict";
 /**
  * Chat Routes
  *
  * API endpoints for chat completions and streaming.
  */
-import express from 'express';
-import Joi from 'joi';
-import { OpenRouter } from '../../core/open-router';
-import { Logger } from '../../utils/logger';
-import { OpenRouterError } from '../../errors/openrouter-error';
-import { Errors } from '../../utils/enhanced-error';
-import { validate, ValidateLocation, CommonSchemas } from '../middleware/validation';
-const router = express.Router();
-const logger = new Logger('info');
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = __importDefault(require("express"));
+const joi_1 = __importDefault(require("joi"));
+const open_router_1 = require("../../core/open-router");
+const logger_1 = require("../../utils/logger");
+const openrouter_error_1 = require("../../errors/openrouter-error");
+const enhanced_error_1 = require("../../utils/enhanced-error");
+const validation_1 = require("../middleware/validation");
+const router = express_1.default.Router();
+const logger = new logger_1.Logger('info');
 // Create a single instance of OpenRouter to reuse across routes
-const getOpenRouter = (apiKey) => new OpenRouter({ apiKey });
+const getOpenRouter = (apiKey) => new open_router_1.OpenRouter({ apiKey });
 // Validation schema for chat completion requests
 const chatCompletionSchema = {
-    location: ValidateLocation.BODY,
-    schema: Joi.object({
-        messages: CommonSchemas.messages,
-        model: Joi.string().min(1),
-        max_tokens: Joi.number().integer().min(1),
-        temperature: Joi.number().min(0).max(2),
-        top_p: Joi.number().min(0).max(1),
-        top_k: Joi.number().integer().min(1),
-        stream: Joi.boolean(),
-        presence_penalty: Joi.number().min(-2).max(2),
-        frequency_penalty: Joi.number().min(-2).max(2),
-        additional_stop_sequences: Joi.array().items(Joi.string()),
-        seed: Joi.number().integer(),
-        response_format: Joi.object(),
-        tools: Joi.array().items(Joi.object()),
-        tool_choice: Joi.alternatives().try(Joi.string(), Joi.object()),
-        plugins: Joi.array().items(Joi.object()),
-        reasoning: Joi.object(),
-        include_reasoning: Joi.boolean(),
-        user: Joi.string()
+    location: validation_1.ValidateLocation.BODY,
+    schema: joi_1.default.object({
+        messages: validation_1.CommonSchemas.messages,
+        model: joi_1.default.string().min(1),
+        max_tokens: joi_1.default.number().integer().min(1),
+        temperature: joi_1.default.number().min(0).max(2),
+        top_p: joi_1.default.number().min(0).max(1),
+        top_k: joi_1.default.number().integer().min(1),
+        stream: joi_1.default.boolean(),
+        presence_penalty: joi_1.default.number().min(-2).max(2),
+        frequency_penalty: joi_1.default.number().min(-2).max(2),
+        additional_stop_sequences: joi_1.default.array().items(joi_1.default.string()),
+        seed: joi_1.default.number().integer(),
+        response_format: joi_1.default.object(),
+        tools: joi_1.default.array().items(joi_1.default.object()),
+        tool_choice: joi_1.default.alternatives().try(joi_1.default.string(), joi_1.default.object()),
+        plugins: joi_1.default.array().items(joi_1.default.object()),
+        reasoning: joi_1.default.object(),
+        include_reasoning: joi_1.default.boolean(),
+        user: joi_1.default.string()
     }).required()
 };
 /**
@@ -43,7 +48,7 @@ const chatCompletionSchema = {
  *
  * POST /api/v1/chat/completions
  */
-router.post('/completions', validate([chatCompletionSchema]), async (req, res) => {
+router.post('/completions', (0, validation_1.validate)([chatCompletionSchema]), async (req, res) => {
     try {
         const apiKey = req.app.locals.apiKey;
         const requestId = req.app.locals.requestId;
@@ -60,11 +65,11 @@ router.post('/completions', validate([chatCompletionSchema]), async (req, res) =
     catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         logger.error(`Chat completion error [${req.app.locals.requestId}]: ${errorMessage}`, error);
-        if (error instanceof OpenRouterError) {
-            const enhancedError = Errors.externalApi(errorMessage || 'An error occurred during chat completion', { originalError: error.data }, req.app.locals.requestId);
+        if (error instanceof openrouter_error_1.OpenRouterError) {
+            const enhancedError = enhanced_error_1.Errors.externalApi(errorMessage || 'An error occurred during chat completion', { originalError: error.data }, req.app.locals.requestId);
             return res.status(enhancedError.status).json(enhancedError.toResponse());
         }
-        const serverError = Errors.server(errorMessage || 'An error occurred during chat completion', null, req.app.locals.requestId);
+        const serverError = enhanced_error_1.Errors.server(errorMessage || 'An error occurred during chat completion', null, req.app.locals.requestId);
         return res.status(serverError.status).json(serverError.toResponse());
     }
 });
@@ -73,7 +78,7 @@ router.post('/completions', validate([chatCompletionSchema]), async (req, res) =
  *
  * POST /api/v1/chat/completions/stream
  */
-router.post('/completions/stream', validate([chatCompletionSchema]), async (req, res) => {
+router.post('/completions/stream', (0, validation_1.validate)([chatCompletionSchema]), async (req, res) => {
     try {
         const apiKey = req.app.locals.apiKey;
         const requestId = req.app.locals.requestId;
@@ -104,9 +109,9 @@ router.post('/completions/stream', validate([chatCompletionSchema]), async (req,
                 ? streamError.message
                 : 'Unknown streaming error';
             logger.error(`Stream error [${requestId}]: ${errorMessage}`, streamError);
-            const enhancedError = streamError instanceof OpenRouterError
-                ? Errors.externalApi(errorMessage, { originalError: streamError }, requestId)
-                : Errors.server(errorMessage, { originalError: String(streamError) }, requestId);
+            const enhancedError = streamError instanceof openrouter_error_1.OpenRouterError
+                ? enhanced_error_1.Errors.externalApi(errorMessage, { originalError: streamError }, requestId)
+                : enhanced_error_1.Errors.server(errorMessage, { originalError: String(streamError) }, requestId);
             // Send error as SSE event
             res.write(`data: ${JSON.stringify(enhancedError.toResponse())}\n\n`);
             res.end();
@@ -117,13 +122,13 @@ router.post('/completions/stream', validate([chatCompletionSchema]), async (req,
             ? error.message
             : 'Unknown error setting up stream';
         logger.error(`Stream setup error [${req.app.locals.requestId}]: ${errorMessage}`, error);
-        if (error instanceof OpenRouterError) {
-            const enhancedError = Errors.externalApi(errorMessage || 'An error occurred setting up the stream', { originalError: error.data }, req.app.locals.requestId);
+        if (error instanceof openrouter_error_1.OpenRouterError) {
+            const enhancedError = enhanced_error_1.Errors.externalApi(errorMessage || 'An error occurred setting up the stream', { originalError: error.data }, req.app.locals.requestId);
             return res.status(enhancedError.status).json(enhancedError.toResponse());
         }
-        const serverError = Errors.server(errorMessage || 'An error occurred setting up the stream', null, req.app.locals.requestId);
+        const serverError = enhanced_error_1.Errors.server(errorMessage || 'An error occurred setting up the stream', null, req.app.locals.requestId);
         return res.status(serverError.status).json(serverError.toResponse());
     }
 });
-export default router;
+exports.default = router;
 //# sourceMappingURL=chat.js.map

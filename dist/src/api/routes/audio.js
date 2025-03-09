@@ -1,20 +1,25 @@
+"use strict";
 /**
  * Audio Routes
  *
  * API endpoints for audio transcription.
  */
-import express from 'express';
-import multer from 'multer';
-import { OpenRouter } from '../../core/open-router';
-import { OpenRouterError } from '../../errors/openrouter-error';
-import { Logger } from '../../utils/logger';
-const router = express.Router();
-const logger = new Logger('info');
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = __importDefault(require("express"));
+const multer_1 = __importDefault(require("multer"));
+const open_router_1 = require("../../core/open-router");
+const openrouter_error_1 = require("../../errors/openrouter-error");
+const logger_1 = require("../../utils/logger");
+const router = express_1.default.Router();
+const logger = new logger_1.Logger('info');
 // Create a single instance of OpenRouter to reuse across routes
-const getOpenRouter = (apiKey) => new OpenRouter({ apiKey });
+const getOpenRouter = (apiKey) => new open_router_1.OpenRouter({ apiKey });
 // Configure multer for file uploads
-const storage = multer.memoryStorage();
-const upload = multer({
+const storage = multer_1.default.memoryStorage();
+const upload = (0, multer_1.default)({
     storage,
     limits: {
         fileSize: 25 * 1024 * 1024, // 25MB limit
@@ -77,13 +82,13 @@ router.post('/transcriptions', upload.single('file'), async (req, res) => {
     catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         logger.error(`Audio transcription error: ${errorMessage}`, error);
-        const statusCode = (error instanceof OpenRouterError) ? error.status : 500;
+        const statusCode = (error instanceof openrouter_error_1.OpenRouterError) ? error.status : 500;
         res.status(statusCode).json({
             error: {
                 message: errorMessage || 'An error occurred during audio transcription',
                 type: error instanceof Error ? error.name : 'server_error',
                 code: statusCode,
-                data: (error instanceof OpenRouterError) ? error.data : null
+                data: (error instanceof openrouter_error_1.OpenRouterError) ? error.data : null
             }
         });
     }
@@ -139,16 +144,16 @@ router.post('/transcriptions/url', async (req, res) => {
     catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         logger.error(`Audio transcription from URL error: ${errorMessage}`, error);
-        const statusCode = (error instanceof OpenRouterError) ? error.status : 500;
+        const statusCode = (error instanceof openrouter_error_1.OpenRouterError) ? error.status : 500;
         res.status(statusCode).json({
             error: {
                 message: errorMessage || 'An error occurred during audio transcription',
                 type: error instanceof Error ? error.name : 'server_error',
                 code: statusCode,
-                data: (error instanceof OpenRouterError) ? error.data : null
+                data: (error instanceof openrouter_error_1.OpenRouterError) ? error.data : null
             }
         });
     }
 });
-export default router;
+exports.default = router;
 //# sourceMappingURL=audio.js.map

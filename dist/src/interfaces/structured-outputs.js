@@ -1,5 +1,6 @@
+"use strict";
 /**
  * Structured outputs interfaces
  */
-export {};
+Object.defineProperty(exports, "__esModule", { value: true });
 //# sourceMappingURL=structured-outputs.js.map

@@ -1,5 +1,6 @@
+"use strict";
 /**
  * Provider routing preferences interfaces
  */
-export {};
+Object.defineProperty(exports, "__esModule", { value: true });
 //# sourceMappingURL=provider-routing.js.map
