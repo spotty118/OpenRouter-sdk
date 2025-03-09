@@ -1,7 +1,8 @@
 /**
  * Core OpenRouter class implementation
  */
-import { OpenRouterConfig, CompletionRequest, EmbeddingRequest, ImageGenerationRequest, AudioTranscriptionRequest, CompletionResponse, EmbeddingResponse, ImageGenerationResponse, AudioTranscriptionResponse, ModelsResponse, ModelInfo, Plugin, ReasoningConfig, ProviderPreferences, ResponseFormat, ChatMessage, CostEstimate, Middleware, Agent, Task, TaskResult, CrewConfig, Workflow, TaskExecutionConfig, TaskCallbacks, CrewRunStatus, VectorDocument, VectorSearchOptions, VectorSearchResult, VectorDBConfig, IVectorDB } from '../interfaces/index.js';
+import { OpenRouterConfig, CompletionRequest, EmbeddingRequest, ImageGenerationRequest, AudioTranscriptionRequest, CompletionResponse, EmbeddingResponse, ImageGenerationResponse, AudioTranscriptionResponse, ModelsResponse, ModelInfo, Plugin, ReasoningConfig, ProviderPreferences, ResponseFormat, ChatMessage, CostEstimate, Middleware, Agent, Task, TaskResult, CrewConfig, Workflow, TaskExecutionConfig, TaskCallbacks, CrewRunStatus, VectorDocument, VectorSearchOptions, VectorSearchResult, VectorDB } from '../interfaces/index.js';
+import { ExtendedVectorDBConfig } from '../utils/vector-db.js';
 import { ExtendedAgentConfig } from '../interfaces/crew-ai.js';
 /**
  * Main OpenRouter SDK class
@@ -566,7 +567,7 @@ export declare class OpenRouter {
      * });
      * ```
      */
-    createVectorDb<T extends VectorDBConfig = VectorDBConfig>(config: T): IVectorDB;
+    createVectorDb(config: ExtendedVectorDBConfig): VectorDB;
     /**
      * Add a document to an agent's knowledge base
      *

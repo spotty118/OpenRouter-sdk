@@ -1,4 +1,4 @@
-import { Logger, MemoryCache, RateLimiter, retry, ProviderRouting, WebSearch, StructuredOutput, Reasoning, CrewAI, VectorDB, createVectorDB } from '../utils/index.js';
+import { Logger, MemoryCache, RateLimiter, retry, ProviderRouting, WebSearch, StructuredOutput, Reasoning, CrewAI, createVectorDB } from '../utils/index.js';
 import { OpenRouterError } from '../errors/openrouter-error.js';
 /**
  * Main OpenRouter SDK class
@@ -961,7 +961,7 @@ export class OpenRouter {
         }
         else {
             // Standard config, use in-memory VectorDB
-            vectorDb = new VectorDB(config);
+            vectorDb = createVectorDB(config);
         }
         this.vectorDbs.set(id, vectorDb);
         return vectorDb;

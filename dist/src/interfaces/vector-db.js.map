@@ -1,1 +1,1 @@
-{"version":3,"file":"vector-db.js","sourceRoot":"","sources":["../../../src/interfaces/vector-db.ts"],"names":[],"mappings":"AAAA;;GAEG"}
+{"version":3,"file":"vector-db.js","sourceRoot":"","sources":["../../../src/interfaces/vector-db.ts"],"names":[],"mappings":"AAAA;;GAEG;AAqCH;;GAEG;AACH,MAAM,CAAN,IAAY,YAGX;AAHD,WAAY,YAAY;IACtB,iCAAiB,CAAA;IACjB,mCAAmB,CAAA;AACrB,CAAC,EAHW,YAAY,KAAZ,YAAY,QAGvB"}

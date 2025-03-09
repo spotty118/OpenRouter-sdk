@@ -27,13 +27,13 @@ async function main() {
     const vectorDb = openRouter.createVectorDb({
         dimensions: 1536,
         similarityMetric: 'cosine',
-        type: VectorDBType.Chroma,
-        chroma: {
-            chromaUrl: 'http://localhost:8000',
-            collectionPrefix: 'embedding-example-',
-            useInMemory: true
-        }
+        type: VectorDBType.CHROMA,
+        chromaUrl: 'http://localhost:8000',
+        collectionPrefix: 'embedding-example-',
+        useInMemory: true
     });
+    // Define default namespace for operations
+    const defaultNamespace = 'default';
     // Sample texts to generate embeddings for
     const texts = [
         'Electric vehicles are becoming increasingly popular due to environmental concerns.',
@@ -55,7 +55,7 @@ async function main() {
     }));
     // Add documents to the vector database
     console.log('Adding documents with pre-computed embeddings to vector database...');
-    const docIds = await vectorDb.addDocuments(documents);
+    const docIds = await vectorDb.addDocuments(documents, defaultNamespace);
     console.log(`Added documents with IDs: ${docIds.join(', ')}`);
     // Generate an embedding for a query
     const queryText = 'What advancements have been made in EV batteries?';
@@ -63,14 +63,21 @@ async function main() {
     const queryEmbedding = await embeddingGenerator.generateEmbedding(queryText);
     // Search using the query embedding
     console.log('Searching with the query embedding...');
-    const searchResults = await vectorDb.searchByVector(queryEmbedding, { limit: 2 });
+    const searchResults = await vectorDb.searchByVector({
+        vector: queryEmbedding,
+        limit: 2,
+        namespace: defaultNamespace
+    });
     searchResults.forEach((result, i) => {
         console.log(`\nResult ${i + 1} (Score: ${result.score.toFixed(4)}):`);
         console.log(`Content: ${result.document.content}`);
     });
     // Compare with text-based search
     console.log('\nComparing with text-based search...');
-    const textSearchResults = await vectorDb.searchByText(queryText, { limit: 2 });
+    const textSearchResults = await vectorDb.searchByText(queryText, {
+        limit: 2,
+        namespace: defaultNamespace
+    });
     textSearchResults.forEach((result, i) => {
         console.log(`\nResult ${i + 1} (Score: ${result.score.toFixed(4)}):`);
         console.log(`Content: ${result.document.content}`);
@@ -87,7 +94,11 @@ async function main() {
     // Search with each batch embedding
     for (let i = 0; i < batchQueries.length; i++) {
         console.log(`\nQuery: "${batchQueries[i]}"`);
-        const results = await vectorDb.searchByVector(batchEmbeddings[i], { limit: 1 });
+        const results = await vectorDb.searchByVector({
+            vector: batchEmbeddings[i],
+            limit: 1,
+            namespace: defaultNamespace
+        });
         if (results.length > 0) {
             console.log(`Top result (Score: ${results[0].score.toFixed(4)}):`);
             console.log(`Content: ${results[0].document.content}`);
@@ -97,6 +108,10 @@ async function main() {
 }
 // Run the example
 main().catch(error => {
-    console.error('Error in embedding generator example:', error);
+    console.error('Error in embedding generator example:', error instanceof Error ? error.message : 'Unknown error');
+    if (error instanceof Error && error.stack) {
+        console.error('Stack trace:', error.stack);
+    }
+    process.exit(1);
 });
 //# sourceMappingURL=embedding-generator-example.js.map
