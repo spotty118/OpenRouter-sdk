@@ -3,7 +3,6 @@
  *
  * API endpoints for chat completions and streaming.
  */
-import { IRouter } from 'express';
-declare const router: IRouter;
+declare const router: import("express").IRouter;
 export default router;
 //# sourceMappingURL=chat.d.ts.map

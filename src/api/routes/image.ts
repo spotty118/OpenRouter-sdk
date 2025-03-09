@@ -5,13 +5,16 @@
  */
 
 import express from 'express';
-import { Request, Response, IRouter } from 'express';
+import { Request, Response } from 'express';
 import { OpenRouter } from '../../core/open-router';
+import { OpenRouterError } from '../../errors/openrouter-error';
 import { Logger } from '../../utils/logger';
-import { ImageGenerationRequest } from '../../interfaces';
+import { ImageGenerationRequest, ImageGenerationResponse } from '../../interfaces';
 
 const router = express.Router();
 const logger = new Logger('info');
+// Create a single instance of OpenRouter to reuse across routes
+const getOpenRouter = (apiKey: string) => new OpenRouter({ apiKey });
 
 /**
  * Generate images
@@ -43,32 +46,34 @@ router.post('/generations', async (req: Request, res: Response) => {
     }
 
     // Initialize OpenRouter with the API key
-    const openRouter = new OpenRouter({ apiKey });
+    const openRouter = getOpenRouter(apiKey);
     
-    // Log the request (excluding sensitive data)
-    logger.info(`Image generation request: model=${options.model}, prompt_length=${options.prompt.length}, size=${options.size || 'default'}`);
+    // Log the request
+    logger.info(`Image generation request: model=${options.model}, prompt="${options.prompt.substring(0, 30)}..."`);
     
     // Send request to OpenRouter
     const response = await openRouter.createImage(options);
     
     // Return the response
     res.status(200).json(response);
-  } catch (error: any) {
-    logger.error(`Image generation error: ${error.message}`, error);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error(`Image generation error: ${errorMessage}`, error);
     
-    res.status(error.status || 500).json({
+    const statusCode = (error instanceof OpenRouterError) ? error.status : 500;
+    res.status(statusCode).json({
       error: {
-        message: error.message || 'An error occurred during image generation',
-        type: error.name || 'server_error',
-        code: error.status || 500,
-        data: error.data
+        message: errorMessage || 'An error occurred during image generation',
+        type: error instanceof Error ? error.name : 'server_error',
+        code: statusCode,
+        data: (error instanceof OpenRouterError) ? error.data : null
       }
     });
   }
 });
 
 /**
- * Generate multiple images in batch
+ * Batch generate images
  * 
  * POST /api/v1/image/generations/batch
  */
@@ -109,7 +114,7 @@ router.post('/generations/batch', async (req: Request, res: Response) => {
     }
 
     // Initialize OpenRouter with the API key
-    const openRouter = new OpenRouter({ apiKey });
+    const openRouter = getOpenRouter(apiKey);
     
     // Log the request
     logger.info(`Batch image generation request: ${requests.length} requests`);
@@ -118,14 +123,16 @@ router.post('/generations/batch', async (req: Request, res: Response) => {
     const results = await Promise.all(
       requests.map(async (request: ImageGenerationRequest) => {
         try {
-          return await openRouter.createImage(request);
-        } catch (error: any) {
+          return await openRouter.createImage(request) as ImageGenerationResponse;
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          const statusCode = (error instanceof OpenRouterError) ? error.status : 500;
           return {
             error: {
-              message: error.message || 'An error occurred during image generation',
-              type: error.name || 'server_error',
-              code: error.status || 500,
-              data: error.data
+              message: errorMessage || 'An error occurred during image generation',
+              type: error instanceof Error ? error.name : 'server_error',
+              code: statusCode,
+              data: (error instanceof OpenRouterError) ? error.data : null
             }
           };
         }
@@ -134,15 +141,17 @@ router.post('/generations/batch', async (req: Request, res: Response) => {
     
     // Return the response
     res.status(200).json({ results });
-  } catch (error: any) {
-    logger.error(`Batch image generation error: ${error.message}`, error);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error(`Batch image generation error: ${errorMessage}`, error);
     
-    res.status(error.status || 500).json({
+    const statusCode = (error instanceof OpenRouterError) ? error.status : 500;
+    res.status(statusCode).json({
       error: {
-        message: error.message || 'An error occurred during batch image generation',
-        type: error.name || 'server_error',
-        code: error.status || 500,
-        data: error.data
+        message: errorMessage || 'An error occurred during batch image generation',
+        type: error instanceof Error ? error.name : 'server_error',
+        code: statusCode,
+        data: (error instanceof OpenRouterError) ? error.data : null
       }
     });
   }

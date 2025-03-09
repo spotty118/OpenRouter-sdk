@@ -3,7 +3,6 @@
  *
  * API endpoints for model information.
  */
-import { IRouter } from 'express';
-declare const router: IRouter;
+declare const router: import("express").IRouter;
 export default router;
 //# sourceMappingURL=model.d.ts.map

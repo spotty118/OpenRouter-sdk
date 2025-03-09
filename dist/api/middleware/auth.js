@@ -19,7 +19,9 @@ export const authenticate = (req, res, next) => {
     }
     // Get API key from Authorization header
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    // Handle case where authHeader could be a string or string[]
+    const authHeaderStr = Array.isArray(authHeader) ? authHeader[0] : authHeader;
+    if (!authHeaderStr || !authHeaderStr.startsWith('Bearer ')) {
         logger.warn('Authentication failed: Missing or invalid Authorization header');
         res.status(401).json({
             error: {
@@ -29,7 +31,7 @@ export const authenticate = (req, res, next) => {
         });
         return;
     }
-    const apiKey = authHeader.split(' ')[1];
+    const apiKey = authHeaderStr.split(' ')[1];
     if (!apiKey) {
         logger.warn('Authentication failed: Empty API key');
         res.status(401).json({

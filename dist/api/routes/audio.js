@@ -6,20 +6,22 @@
 import express from 'express';
 import multer from 'multer';
 import { OpenRouter } from '../../core/open-router';
+import { OpenRouterError } from '../../errors/openrouter-error';
 import { Logger } from '../../utils/logger';
 const router = express.Router();
 const logger = new Logger('info');
+// Create a single instance of OpenRouter to reuse across routes
+const getOpenRouter = (apiKey) => new OpenRouter({ apiKey });
 // Configure multer for file uploads
 const storage = multer.memoryStorage();
 const upload = multer({
     storage,
     limits: {
         fileSize: 25 * 1024 * 1024, // 25MB limit
-        files: 1
-    }
+    },
 });
 /**
- * Transcribe audio to text
+ * Transcribe audio
  *
  * POST /api/v1/audio/transcriptions
  */
@@ -35,11 +37,11 @@ router.post('/transcriptions', upload.single('file'), async (req, res) => {
                 }
             });
         }
-        // Get other parameters from request body
+        // Get other form fields
         const model = req.body.model;
         const language = req.body.language;
         const prompt = req.body.prompt;
-        const response_format = req.body.response_format;
+        const responseFormat = req.body.response_format;
         const temperature = req.body.temperature ? parseFloat(req.body.temperature) : undefined;
         // Validate required fields
         if (!model) {
@@ -51,31 +53,37 @@ router.post('/transcriptions', upload.single('file'), async (req, res) => {
             });
         }
         // Initialize OpenRouter with the API key
-        const openRouter = new OpenRouter({ apiKey });
+        const openRouter = getOpenRouter(apiKey);
         // Log the request
-        logger.info(`Audio transcription request: model=${model}, file_size=${req.file.size} bytes, language=${language || 'auto'}`);
-        // Create transcription request
+        logger.info(`Audio transcription request: model=${model}, file=${req.file.originalname}, size=${req.file.size} bytes`);
+        // Prepare request options
         const options = {
             model,
-            file: req.file.buffer,
-            language,
-            prompt,
-            response_format,
-            temperature
+            file: req.file.buffer // Pass the buffer directly as ArrayBuffer
         };
+        if (language)
+            options.language = language;
+        if (prompt)
+            options.prompt = prompt;
+        if (responseFormat)
+            options.response_format = responseFormat;
+        if (temperature !== undefined)
+            options.temperature = temperature;
         // Send request to OpenRouter
         const response = await openRouter.createTranscription(options);
         // Return the response
         res.status(200).json(response);
     }
     catch (error) {
-        logger.error(`Audio transcription error: ${error.message}`, error);
-        res.status(error.status || 500).json({
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        logger.error(`Audio transcription error: ${errorMessage}`, error);
+        const statusCode = (error instanceof OpenRouterError) ? error.status : 500;
+        res.status(statusCode).json({
             error: {
-                message: error.message || 'An error occurred during audio transcription',
-                type: error.name || 'server_error',
-                code: error.status || 500,
-                data: error.data
+                message: errorMessage || 'An error occurred during audio transcription',
+                type: error instanceof Error ? error.name : 'server_error',
+                code: statusCode,
+                data: (error instanceof OpenRouterError) ? error.data : null
             }
         });
     }
@@ -93,7 +101,7 @@ router.post('/transcriptions/url', async (req, res) => {
         if (!url) {
             return res.status(400).json({
                 error: {
-                    message: 'Invalid request: audio URL is required',
+                    message: 'Invalid request: url is required',
                     type: 'invalid_request_error'
                 }
             });
@@ -107,42 +115,37 @@ router.post('/transcriptions/url', async (req, res) => {
             });
         }
         // Initialize OpenRouter with the API key
-        const openRouter = new OpenRouter({ apiKey });
+        const openRouter = getOpenRouter(apiKey);
         // Log the request
-        logger.info(`Audio transcription from URL request: model=${model}, url=${url}, language=${language || 'auto'}`);
-        // Fetch the audio file
-        const response = await fetch(url);
-        if (!response.ok) {
-            return res.status(400).json({
-                error: {
-                    message: `Failed to fetch audio from URL: ${response.statusText}`,
-                    type: 'invalid_request_error'
-                }
-            });
-        }
-        const audioBuffer = await response.arrayBuffer();
-        // Create transcription request
+        logger.info(`Audio transcription from URL request: model=${model}, url=${url}`);
+        // Prepare request options
         const options = {
             model,
-            file: audioBuffer,
-            language,
-            prompt,
-            response_format,
-            temperature
+            file: url // Pass the URL as a string
         };
+        if (language)
+            options.language = language;
+        if (prompt)
+            options.prompt = prompt;
+        if (response_format)
+            options.response_format = response_format;
+        if (temperature !== undefined)
+            options.temperature = temperature;
         // Send request to OpenRouter
-        const transcriptionResponse = await openRouter.createTranscription(options);
+        const response = await openRouter.createTranscription(options);
         // Return the response
-        res.status(200).json(transcriptionResponse);
+        res.status(200).json(response);
     }
     catch (error) {
-        logger.error(`Audio transcription from URL error: ${error.message}`, error);
-        res.status(error.status || 500).json({
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        logger.error(`Audio transcription from URL error: ${errorMessage}`, error);
+        const statusCode = (error instanceof OpenRouterError) ? error.status : 500;
+        res.status(statusCode).json({
             error: {
-                message: error.message || 'An error occurred during audio transcription',
-                type: error.name || 'server_error',
-                code: error.status || 500,
-                data: error.data
+                message: errorMessage || 'An error occurred during audio transcription',
+                type: error instanceof Error ? error.name : 'server_error',
+                code: statusCode,
+                data: (error instanceof OpenRouterError) ? error.data : null
             }
         });
     }

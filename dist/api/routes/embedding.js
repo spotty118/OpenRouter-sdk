@@ -5,9 +5,12 @@
  */
 import express from 'express';
 import { OpenRouter } from '../../core/open-router';
+import { OpenRouterError } from '../../errors/openrouter-error';
 import { Logger } from '../../utils/logger';
 const router = express.Router();
 const logger = new Logger('info');
+// Create a single instance of OpenRouter to reuse across routes
+const getOpenRouter = (apiKey) => new OpenRouter({ apiKey });
 /**
  * Create text embeddings
  *
@@ -35,7 +38,7 @@ router.post('/', async (req, res) => {
             });
         }
         // Initialize OpenRouter with the API key
-        const openRouter = new OpenRouter({ apiKey });
+        const openRouter = getOpenRouter(apiKey);
         // Log the request
         const inputType = Array.isArray(options.input) ? 'array' : 'string';
         const inputLength = Array.isArray(options.input)
@@ -48,13 +51,15 @@ router.post('/', async (req, res) => {
         res.status(200).json(response);
     }
     catch (error) {
-        logger.error(`Embedding error: ${error.message}`, error);
-        res.status(error.status || 500).json({
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        logger.error(`Embedding error: ${errorMessage}`, error);
+        const statusCode = (error instanceof OpenRouterError) ? error.status : 500;
+        res.status(statusCode).json({
             error: {
-                message: error.message || 'An error occurred during embedding generation',
-                type: error.name || 'server_error',
-                code: error.status || 500,
-                data: error.data
+                message: errorMessage || 'An error occurred during embedding generation',
+                type: error instanceof Error ? error.name : 'server_error',
+                code: statusCode,
+                data: (error instanceof OpenRouterError) ? error.data : null
             }
         });
     }
@@ -98,7 +103,7 @@ router.post('/batch', async (req, res) => {
             }
         }
         // Initialize OpenRouter with the API key
-        const openRouter = new OpenRouter({ apiKey });
+        const openRouter = getOpenRouter(apiKey);
         // Log the request
         logger.info(`Batch embedding request: ${requests.length} requests, concurrency=${concurrency || 3}`);
         // Process each embedding request individually
@@ -108,12 +113,14 @@ router.post('/batch', async (req, res) => {
                 return await openRouter.createEmbedding(request);
             }
             catch (error) {
+                const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+                const statusCode = (error instanceof OpenRouterError) ? error.status : 500;
                 return {
                     error: {
-                        message: error.message || 'An error occurred during embedding generation',
-                        type: error.name || 'server_error',
-                        code: error.status || 500,
-                        data: error.data
+                        message: errorMessage || 'An error occurred during embedding generation',
+                        type: error instanceof Error ? error.name : 'server_error',
+                        code: statusCode,
+                        data: (error instanceof OpenRouterError) ? error.data : null
                     }
                 };
             }
@@ -122,13 +129,15 @@ router.post('/batch', async (req, res) => {
         res.status(200).json({ results });
     }
     catch (error) {
-        logger.error(`Batch embedding error: ${error.message}`, error);
-        res.status(error.status || 500).json({
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        logger.error(`Batch embedding error: ${errorMessage}`, error);
+        const statusCode = (error instanceof OpenRouterError) ? error.status : 500;
+        res.status(statusCode).json({
             error: {
-                message: error.message || 'An error occurred during batch embedding generation',
-                type: error.name || 'server_error',
-                code: error.status || 500,
-                data: error.data
+                message: errorMessage || 'An error occurred during batch embedding generation',
+                type: error instanceof Error ? error.name : 'server_error',
+                code: statusCode,
+                data: (error instanceof OpenRouterError) ? error.data : null
             }
         });
     }

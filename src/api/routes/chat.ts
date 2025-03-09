@@ -5,13 +5,16 @@
  */
 
 import express from 'express';
-import { Request, Response, IRouter } from 'express';
+import { Request, Response } from 'express';
 import { OpenRouter } from '../../core/open-router';
 import { Logger } from '../../utils/logger';
-import { CompletionRequest, ChatMessage } from '../../interfaces';
+import { OpenRouterError } from '../../errors/openrouter-error';
+import { CompletionRequest, ChatMessage, CompletionResponse } from '../../interfaces';
 
 const router = express.Router();
 const logger = new Logger('info');
+// Create a single instance of OpenRouter to reuse across routes
+const getOpenRouter = (apiKey: string) => new OpenRouter({ apiKey });
 
 /**
  * Create a chat completion
@@ -34,7 +37,7 @@ router.post('/completions', async (req: Request, res: Response) => {
     }
 
     // Initialize OpenRouter with the API key
-    const openRouter = new OpenRouter({ apiKey });
+    const openRouter = getOpenRouter(apiKey);
     
     // Log the request (excluding sensitive data)
     logger.info(`Chat completion request: model=${options.model || 'default'}, messages=${options.messages.length}`);
@@ -44,15 +47,17 @@ router.post('/completions', async (req: Request, res: Response) => {
     
     // Return the response
     res.status(200).json(response);
-  } catch (error: any) {
-    logger.error(`Chat completion error: ${error.message}`, error);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error(`Chat completion error: ${errorMessage}`, error);
     
-    res.status(error.status || 500).json({
+    const statusCode = (error instanceof OpenRouterError) ? error.status : 500;
+    res.status(statusCode).json({
       error: {
-        message: error.message || 'An error occurred during chat completion',
-        type: error.name || 'server_error',
-        code: error.status || 500,
-        data: error.data
+        message: errorMessage || 'An error occurred during chat completion',
+        type: error instanceof Error ? error.name : 'server_error',
+        code: statusCode, 
+        data: (error instanceof OpenRouterError) ? error.data : null
       }
     });
   }
@@ -79,7 +84,7 @@ router.post('/completions/stream', async (req: Request, res: Response) => {
     }
 
     // Initialize OpenRouter with the API key
-    const openRouter = new OpenRouter({ apiKey });
+    const openRouter = getOpenRouter(apiKey);
     
     // Log the request (excluding sensitive data)
     logger.info(`Stream chat completion request: model=${options.model || 'default'}, messages=${options.messages.length}`);
@@ -103,28 +108,38 @@ router.post('/completions/stream', async (req: Request, res: Response) => {
       // End the stream
       res.write('data: [DONE]\n\n');
       res.end();
-    } catch (streamError: any) {
-      logger.error(`Stream error: ${streamError.message}`, streamError);
+    } catch (streamError: unknown) {
+      const errorMessage = streamError instanceof Error 
+        ? streamError.message 
+        : 'Unknown streaming error';
+      
+      logger.error(`Stream error: ${errorMessage}`, streamError);
       
       // Send error as SSE event
       res.write(`data: ${JSON.stringify({
         error: {
-          message: streamError.message || 'An error occurred during streaming',
-          type: streamError.name || 'stream_error'
+          message: errorMessage || 'An error occurred during streaming',
+          type: streamError instanceof Error ? streamError.name : 'stream_error'
         }
       })}\n\n`);
       
       res.end();
     }
-  } catch (error: any) {
-    logger.error(`Stream setup error: ${error.message}`, error);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error 
+      ? error.message 
+      : 'Unknown error setting up stream';
     
-    res.status(error.status || 500).json({
+    logger.error(`Stream setup error: ${errorMessage}`, error);
+    
+    const statusCode = error instanceof OpenRouterError ? error.status : 500;
+    
+    res.status(statusCode).json({
       error: {
-        message: error.message || 'An error occurred setting up the stream',
-        type: error.name || 'server_error',
-        code: error.status || 500,
-        data: error.data
+        message: errorMessage || 'An error occurred setting up the stream',
+        type: error instanceof Error ? error.name : 'server_error',
+        code: statusCode,
+        data: (error instanceof OpenRouterError) ? error.data : null
       }
     });
   }

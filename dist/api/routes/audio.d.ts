@@ -3,7 +3,6 @@
  *
  * API endpoints for audio transcription.
  */
-import { IRouter } from 'express';
-declare const router: IRouter;
+declare const router: import("express").IRouter;
 export default router;
 //# sourceMappingURL=audio.d.ts.map

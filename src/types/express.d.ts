@@ -25,8 +25,14 @@ declare module 'express' {
   
   export interface Application {
     listen(port: number, callback?: () => void): Server;
+    use(path: string, handler: IRouter): Application;
+    use(handler: RequestHandler): Application;
+    use(errorHandler: ErrorRequestHandler): Application;
     [key: string]: any;
   }
+  
+  export type RequestHandler = (req: Request, res: Response, next: NextFunction) => any;
+  export type ErrorRequestHandler = (err: Error, req: Request, res: Response, next: NextFunction) => any;
   
   export interface IRouter {
     get(path: string, ...handlers: any[]): IRouter;

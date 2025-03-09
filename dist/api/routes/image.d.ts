@@ -3,7 +3,6 @@
  *
  * API endpoints for image generation.
  */
-import { IRouter } from 'express';
-declare const router: IRouter;
+declare const router: import("express").IRouter;
 export default router;
 //# sourceMappingURL=image.d.ts.map

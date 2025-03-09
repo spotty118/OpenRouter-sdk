@@ -7,12 +7,23 @@
 import express from 'express';
 import { Request, Response, IRouter } from 'express';
 import { OpenRouter } from '../../core/open-router';
+import { OpenRouterError } from '../../errors/openrouter-error';
 import { Logger } from '../../utils/logger';
-import { VectorDocument, VectorSearchOptions } from '../../interfaces';
-import { ExtendedVectorDBConfig, VectorDBType } from '../../utils/vector-db';
+import { 
+  VectorDocument, 
+  VectorSearchOptions, 
+  VectorSearchResult,
+  IVectorDB
+} from '../../interfaces';
+import { 
+  ExtendedVectorDBConfig, 
+  VectorDBType 
+} from '../../utils/vector-db';
 
 const router = express.Router();
 const logger = new Logger('info');
+// Create a single instance of OpenRouter to reuse across routes
+const getOpenRouter = (apiKey: string) => new OpenRouter({ apiKey });
 
 /**
  * Create a vector database
@@ -35,7 +46,7 @@ router.post('/', async (req: Request, res: Response) => {
     }
 
     // Initialize OpenRouter with the API key
-    const openRouter = new OpenRouter({ apiKey });
+    const openRouter = getOpenRouter(apiKey);
     
     // Log the request
     logger.info(`Create vector database request: dimensions=${config.dimensions}, type=${config.type || 'default'}`);
@@ -46,17 +57,19 @@ router.post('/', async (req: Request, res: Response) => {
     // Return the response
     res.status(201).json({
       message: 'Vector database created successfully',
-      config
+      config: config
     });
-  } catch (error: any) {
-    logger.error(`Create vector database error: ${error.message}`, error);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error(`Create vector database error: ${errorMessage}`, error);
     
-    res.status(error.status || 500).json({
+    const statusCode = (error instanceof OpenRouterError) ? error.status : 500;
+    res.status(statusCode).json({
       error: {
-        message: error.message || 'An error occurred while creating vector database',
-        type: error.name || 'server_error',
-        code: error.status || 500,
-        data: error.data
+        message: errorMessage || 'An error occurred while creating vector database',
+        type: error instanceof Error ? error.name : 'server_error',
+        code: statusCode,
+        data: (error instanceof OpenRouterError) ? error.data : null
       }
     });
   }
@@ -93,7 +106,7 @@ router.post('/:id/documents', async (req: Request, res: Response) => {
     }
 
     // Initialize OpenRouter with the API key
-    const openRouter = new OpenRouter({ apiKey });
+    const openRouter = getOpenRouter(apiKey);
     
     // Log the request
     logger.info(`Add document request: db=${dbId}, document_id=${document.id || 'auto'}`);
@@ -109,15 +122,17 @@ router.post('/:id/documents', async (req: Request, res: Response) => {
     
     // Return the response
     res.status(201).json({ documentId });
-  } catch (error: any) {
-    logger.error(`Add document error: ${error.message}`, error);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error(`Add document error: ${errorMessage}`, error);
     
-    res.status(error.status || 500).json({
+    const statusCode = (error instanceof OpenRouterError) ? error.status : 500;
+    res.status(statusCode).json({
       error: {
-        message: error.message || 'An error occurred while adding document',
-        type: error.name || 'server_error',
-        code: error.status || 500,
-        data: error.data
+        message: errorMessage || 'An error occurred while adding document',
+        type: error instanceof Error ? error.name : 'server_error',
+        code: statusCode,
+        data: (error instanceof OpenRouterError) ? error.data : null
       }
     });
   }
@@ -157,7 +172,7 @@ router.post('/:id/documents/batch', async (req: Request, res: Response) => {
     }
 
     // Initialize OpenRouter with the API key
-    const openRouter = new OpenRouter({ apiKey });
+    const openRouter = getOpenRouter(apiKey);
     
     // Log the request
     logger.info(`Add batch documents request: db=${dbId}, documents=${documents.length}`);
@@ -173,15 +188,17 @@ router.post('/:id/documents/batch', async (req: Request, res: Response) => {
     
     // Return the response
     res.status(201).json({ documentIds });
-  } catch (error: any) {
-    logger.error(`Add batch documents error: ${error.message}`, error);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error(`Add batch documents error: ${errorMessage}`, error);
     
-    res.status(error.status || 500).json({
+    const statusCode = (error instanceof OpenRouterError) ? error.status : 500;
+    res.status(statusCode).json({
       error: {
-        message: error.message || 'An error occurred while adding batch documents',
-        type: error.name || 'server_error',
-        code: error.status || 500,
-        data: error.data
+        message: errorMessage || 'An error occurred while adding batch documents',
+        type: error instanceof Error ? error.name : 'server_error',
+        code: statusCode,
+        data: (error instanceof OpenRouterError) ? error.data : null
       }
     });
   }
@@ -212,7 +229,7 @@ router.get('/:id/search', async (req: Request, res: Response) => {
     }
 
     // Initialize OpenRouter with the API key
-    const openRouter = new OpenRouter({ apiKey });
+    const openRouter = getOpenRouter(apiKey);
     
     // Log the request
     logger.info(`Search request: db=${dbId}, query="${query}", limit=${limit || 'default'}, namespace=${namespace || 'default'}`);
@@ -234,15 +251,17 @@ router.get('/:id/search', async (req: Request, res: Response) => {
     
     // Return the response
     res.status(200).json({ results });
-  } catch (error: any) {
-    logger.error(`Search error: ${error.message}`, error);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error(`Search error: ${errorMessage}`, error);
     
-    res.status(error.status || 500).json({
+    const statusCode = (error instanceof OpenRouterError) ? error.status : 500;
+    res.status(statusCode).json({
       error: {
-        message: error.message || 'An error occurred while searching',
-        type: error.name || 'server_error',
-        code: error.status || 500,
-        data: error.data
+        message: errorMessage || 'An error occurred while searching',
+        type: error instanceof Error ? error.name : 'server_error',
+        code: statusCode,
+        data: (error instanceof OpenRouterError) ? error.data : null
       }
     });
   }
@@ -261,7 +280,7 @@ router.get('/:id/documents/:documentId', async (req: Request, res: Response) => 
     const namespace = req.query.namespace as string;
     
     // Initialize OpenRouter with the API key
-    const openRouter = new OpenRouter({ apiKey });
+    const openRouter = getOpenRouter(apiKey);
     
     // Log the request
     logger.info(`Get document request: db=${dbId}, document=${documentId}, namespace=${namespace || 'default'}`);
@@ -286,15 +305,17 @@ router.get('/:id/documents/:documentId', async (req: Request, res: Response) => 
     
     // Return the response
     res.status(200).json(document);
-  } catch (error: any) {
-    logger.error(`Get document error: ${error.message}`, error);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error(`Get document error: ${errorMessage}`, error);
     
-    res.status(error.status || 500).json({
+    const statusCode = (error instanceof OpenRouterError) ? error.status : 500;
+    res.status(statusCode).json({
       error: {
-        message: error.message || 'An error occurred while getting document',
-        type: error.name || 'server_error',
-        code: error.status || 500,
-        data: error.data
+        message: errorMessage || 'An error occurred while getting document',
+        type: error instanceof Error ? error.name : 'server_error',
+        code: statusCode,
+        data: (error instanceof OpenRouterError) ? error.data : null
       }
     });
   }
@@ -313,7 +334,7 @@ router.delete('/:id/documents/:documentId', async (req: Request, res: Response) 
     const namespace = req.query.namespace as string;
     
     // Initialize OpenRouter with the API key
-    const openRouter = new OpenRouter({ apiKey });
+    const openRouter = getOpenRouter(apiKey);
     
     // Log the request
     logger.info(`Delete document request: db=${dbId}, document=${documentId}, namespace=${namespace || 'default'}`);
@@ -338,15 +359,17 @@ router.delete('/:id/documents/:documentId', async (req: Request, res: Response) 
     
     // Return the response
     res.status(204).end();
-  } catch (error: any) {
-    logger.error(`Delete document error: ${error.message}`, error);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error(`Delete document error: ${errorMessage}`, error);
     
-    res.status(error.status || 500).json({
+    const statusCode = (error instanceof OpenRouterError) ? error.status : 500;
+    res.status(statusCode).json({
       error: {
-        message: error.message || 'An error occurred while deleting document',
-        type: error.name || 'server_error',
-        code: error.status || 500,
-        data: error.data
+        message: errorMessage || 'An error occurred while deleting document',
+        type: error instanceof Error ? error.name : 'server_error',
+        code: statusCode,
+        data: (error instanceof OpenRouterError) ? error.data : null
       }
     });
   }
