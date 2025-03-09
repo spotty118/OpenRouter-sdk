@@ -1,6 +1,6 @@
 {
   "name": "openrouter-sdk",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "A comprehensive TypeScript SDK for seamlessly integrating with the OpenRouter API",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
