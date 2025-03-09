@@ -2,9 +2,9 @@
  * Example demonstrating the use of EmbeddingGenerator with ChromaDB
  */
 
-import { OpenRouter } from '../core/open-router';
-import { EmbeddingGenerator } from '../utils/embedding-generator';
-import { VectorDBType, ExtendedVectorDBConfig, VectorDocument } from '../interfaces/vector-db';
+import { OpenRouter } from '../core/open-router.js';
+import { EmbeddingGenerator } from '../utils/embedding-generator.js';
+import { VectorDBType, ExtendedVectorDBConfig, VectorDocument } from '../interfaces/vector-db.js';
 
 /**
  * This example demonstrates how to use the EmbeddingGenerator with ChromaDB

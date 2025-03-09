@@ -1,8 +1,7 @@
 /**
  * Core OpenRouter class implementation
  */
-import {
-  OpenRouterConfig,
+import { OpenRouterConfig,
   CompletionRequest,
   EmbeddingRequest,
   ImageGenerationRequest,
@@ -32,11 +31,9 @@ import {
   VectorSearchOptions,
   VectorSearchResult,
   VectorDBConfig,
-  IVectorDB
-} from '../interfaces';
+  IVectorDB } from '../interfaces/index.js';
 
-import {
-  Logger,
+import { Logger,
   MemoryCache,
   RateLimiter,
   retry,
@@ -47,11 +44,10 @@ import {
   CrewAI,
   VectorDB,
   createVectorDB,
-  ExtendedVectorDBConfig
-} from '../utils';
+  ExtendedVectorDBConfig } from '../utils/index.js';
 
-import { OpenRouterError } from '../errors/openrouter-error';
-import { ExtendedAgentConfig } from '../interfaces/crew-ai';
+import { OpenRouterError } from '../errors/openrouter-error.js';
+import { ExtendedAgentConfig } from '../interfaces/crew-ai.js';
 
 /**
  * Main OpenRouter SDK class

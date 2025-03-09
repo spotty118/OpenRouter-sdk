@@ -4,7 +4,7 @@
  * This module provides utility functions for working with OpenRouter's provider routing capabilities,
  * allowing you to control which providers handle your requests and how fallbacks are managed.
  */
-import { ProviderPreferences, ModelSuffix } from '../interfaces/provider-routing';
+import { ProviderPreferences, ModelSuffix } from '../interfaces/provider-routing.js';
 /**
  * Utility class for working with OpenRouter provider routing
  */

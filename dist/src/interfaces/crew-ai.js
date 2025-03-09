@@ -1,13 +1,10 @@
-"use strict";
 /**
  * Interface definitions for CrewAI agent orchestration
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.ProcessMode = exports.TaskStatus = void 0;
 /**
  * The current state of a task
  */
-var TaskStatus;
+export var TaskStatus;
 (function (TaskStatus) {
     TaskStatus["PENDING"] = "pending";
     TaskStatus["IN_PROGRESS"] = "in_progress";
@@ -15,11 +12,11 @@ var TaskStatus;
     TaskStatus["FAILED"] = "failed";
     TaskStatus["APPROVED"] = "approved";
     TaskStatus["REJECTED"] = "rejected";
-})(TaskStatus || (exports.TaskStatus = TaskStatus = {}));
+})(TaskStatus || (TaskStatus = {}));
 /**
  * Defines how tasks should be processed
  */
-var ProcessMode;
+export var ProcessMode;
 (function (ProcessMode) {
     /** Process tasks sequentially */
     ProcessMode["SEQUENTIAL"] = "sequential";
@@ -27,5 +24,5 @@ var ProcessMode;
     ProcessMode["PARALLEL"] = "parallel";
     /** Process tasks based on dependencies */
     ProcessMode["HIERARCHICAL"] = "hierarchical";
-})(ProcessMode || (exports.ProcessMode = ProcessMode = {}));
+})(ProcessMode || (ProcessMode = {}));
 //# sourceMappingURL=crew-ai.js.map

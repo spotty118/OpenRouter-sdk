@@ -1,19 +1,16 @@
-"use strict";
 /**
  * Chroma vector database implementation for knowledge storage and retrieval
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.ChromaVectorDB = void 0;
-const logger_1 = require("./logger");
-const chromadb_1 = require("chromadb");
-const embedding_generator_1 = require("./embedding-generator");
+import { Logger } from './logger.js';
+import { ChromaClient, IncludeEnum } from 'chromadb';
+import { EmbeddingGenerator } from './embedding-generator.js';
 /**
  * Chroma vector database implementation
  *
  * This implementation provides a vector database that uses Chroma for
  * storing and retrieving embeddings with high-performance vector search.
  */
-class ChromaVectorDB {
+export class ChromaVectorDB {
     /**
      * Create a new Chroma vector database
      *
@@ -34,10 +31,10 @@ class ChromaVectorDB {
             collectionPrefix: config.collectionPrefix || 'openrouter_',
             useInMemory: config.useInMemory || false
         };
-        this.logger = new logger_1.Logger('info');
+        this.logger = new Logger('info');
         // Initialize real Chroma client
         if (this.config.useInMemory) {
-            this.client = new chromadb_1.ChromaClient({
+            this.client = new ChromaClient({
                 path: this.config.chromaUrl,
                 fetchOptions: this.config.chromaApiKey ? {
                     headers: {
@@ -47,7 +44,7 @@ class ChromaVectorDB {
             });
         }
         else {
-            this.client = new chromadb_1.ChromaClient({
+            this.client = new ChromaClient({
                 path: this.config.chromaUrl,
                 fetchOptions: this.config.chromaApiKey ? {
                     headers: {
@@ -57,7 +54,7 @@ class ChromaVectorDB {
             });
         }
         // Initialize embedding generator
-        this.embeddingGenerator = new embedding_generator_1.EmbeddingGenerator({
+        this.embeddingGenerator = new EmbeddingGenerator({
             dimensions: this.config.dimensions,
             apiKey: process.env.OPENAI_API_KEY || '',
             model: 'text-embedding-3-small',
@@ -240,10 +237,10 @@ class ChromaVectorDB {
                 queryEmbeddings: [vector],
                 nResults: limit,
                 include: [
-                    chromadb_1.IncludeEnum.Documents,
-                    chromadb_1.IncludeEnum.Metadatas,
-                    chromadb_1.IncludeEnum.Distances,
-                    options.includeVectors ? chromadb_1.IncludeEnum.Embeddings : undefined
+                    IncludeEnum.Documents,
+                    IncludeEnum.Metadatas,
+                    IncludeEnum.Distances,
+                    options.includeVectors ? IncludeEnum.Embeddings : undefined
                 ].filter(Boolean)
             });
             // Format results
@@ -311,9 +308,9 @@ class ChromaVectorDB {
             const result = await collection.get({
                 ids: [id],
                 include: [
-                    chromadb_1.IncludeEnum.Documents,
-                    chromadb_1.IncludeEnum.Metadatas,
-                    chromadb_1.IncludeEnum.Embeddings
+                    IncludeEnum.Documents,
+                    IncludeEnum.Metadatas,
+                    IncludeEnum.Embeddings
                 ]
             });
             if (!result.ids || result.ids.length === 0) {
@@ -460,5 +457,4 @@ class ChromaVectorDB {
         return Promise.resolve();
     }
 }
-exports.ChromaVectorDB = ChromaVectorDB;
 //# sourceMappingURL=chroma-vector-db.js.map

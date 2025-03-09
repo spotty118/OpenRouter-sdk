@@ -5,7 +5,7 @@
  * and additional metadata for better error reporting.
  */
 
-import { Logger } from './logger';
+import { Logger } from './logger.js';
 
 const logger = new Logger('info');
 

@@ -5,8 +5,8 @@
  */
 
 import { Request, Response } from 'express';
-import { version } from '../../../package.json';
-import { Logger } from '../../utils/logger';
+import  version  from '../../../package.json' with { type: 'json' };
+import { Logger } from '../../utils/logger.js';
 import os from 'os';
 
 const logger = new Logger('info');
@@ -64,7 +64,7 @@ export const detailedHealthCheck = async (req: Request, res: Response): Promise<
     // Prepare health status response
     const healthStatus: HealthStatus = {
       status: 'ok',
-      version,
+      version: version.version,
       uptime: Math.floor((Date.now() - startTime) / 1000), // in seconds
       timestamp: new Date().toISOString(),
       system: {

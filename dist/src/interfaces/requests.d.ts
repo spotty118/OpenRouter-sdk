@@ -1,12 +1,12 @@
 /**
  * Request type interfaces
  */
-import { ChatMessage } from './messaging';
-import { ToolDefinition } from './tools';
-import { ProviderPreferences } from './provider-routing';
-import { Plugin } from './plugins';
-import { ReasoningConfig } from './reasoning';
-import { ResponseFormat } from './structured-outputs';
+import { ChatMessage } from './messaging.js';
+import { ToolDefinition } from './tools.js';
+import { ProviderPreferences } from './provider-routing.js';
+import { Plugin } from './plugins.js';
+import { ReasoningConfig } from './reasoning.js';
+import { ResponseFormat } from './structured-outputs.js';
 /**
  * Chat completion request
  */

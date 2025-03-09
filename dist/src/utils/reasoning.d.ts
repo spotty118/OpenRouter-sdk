@@ -5,7 +5,7 @@
  * in OpenRouter's API. Reasoning tokens provide a transparent look into the step-by-step
  * reasoning process used by the model.
  */
-import { ReasoningConfig } from '../interfaces/reasoning';
+import { ReasoningConfig } from '../interfaces/reasoning.js';
 /**
  * Utility class for working with reasoning tokens
  */

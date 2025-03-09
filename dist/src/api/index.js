@@ -1,19 +1,14 @@
-"use strict";
 /**
  * OpenRouter API Server Entry Point
  *
  * This file exports the Express app and provides a function to start the server.
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.default = void 0;
-exports.startServer = startServer;
-const logger_1 = require("../utils/logger");
-const package_json_1 = require("../../package.json");
+import { Logger } from '../utils/logger.js';
+import version from '../../package.json' with { type: 'json' };
 // Handle the CommonJS module export correctly
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const app = require('./server');
-exports.default = app;
-const logger = new logger_1.Logger('info');
+const logger = new Logger('info');
 const PORT = process.env.PORT || 3000;
 /**
  * Start the API server
@@ -21,7 +16,7 @@ const PORT = process.env.PORT || 3000;
  * @param port - Port to listen on (default: 3000 or PORT environment variable)
  * @returns The Express server instance
  */
-function startServer(port = Number(PORT)) {
+export function startServer(port = Number(PORT)) {
     const server = app.listen(port, () => {
         logger.info(`
       ╔═══════════════════════════════════════════════════╗
@@ -29,7 +24,7 @@ function startServer(port = Number(PORT)) {
       ║   OpenRouter SDK API Server                       ║
       ║                                                   ║
       ║   Server is now running on port ${port}             ║
-      ║   Version: ${package_json_1.version}                                ║
+      ║   Version: ${version}                                ║
       ║                                                   ║
       ║   API Documentation: http://localhost:${port}/api-docs  ║
       ║   Health Check: http://localhost:${port}/health        ║
@@ -43,4 +38,6 @@ function startServer(port = Number(PORT)) {
 if (require.main === module) {
     startServer();
 }
+// Export the app 
+export { app as default };
 //# sourceMappingURL=index.js.map

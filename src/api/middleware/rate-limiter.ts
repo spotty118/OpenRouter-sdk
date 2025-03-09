@@ -5,8 +5,8 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
-import { Logger } from '../../utils/logger';
-import { RateLimiter as SDKRateLimiter } from '../../utils/rate-limiter';
+import { Logger } from '../../utils/logger.js';
+import { RateLimiter as SDKRateLimiter } from '../../utils/rate-limiter.js';
 
 const logger = new Logger('info');
 

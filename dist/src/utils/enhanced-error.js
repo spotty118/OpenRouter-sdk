@@ -1,18 +1,15 @@
-"use strict";
 /**
  * Enhanced Error Handling Module
  *
  * Provides standardized error handling with status codes, error types,
  * and additional metadata for better error reporting.
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.Errors = exports.EnhancedError = exports.ErrorStatusMap = exports.ErrorType = void 0;
-const logger_1 = require("./logger");
-const logger = new logger_1.Logger('info');
+import { Logger } from './logger.js';
+const logger = new Logger('info');
 /**
  * Error types for better categorization
  */
-var ErrorType;
+export var ErrorType;
 (function (ErrorType) {
     ErrorType["VALIDATION"] = "validation_error";
     ErrorType["AUTHENTICATION"] = "authentication_error";
@@ -27,11 +24,11 @@ var ErrorType;
     ErrorType["CONFLICT"] = "conflict_error";
     ErrorType["DATABASE"] = "database_error";
     ErrorType["INVALID_INPUT"] = "invalid_input_error";
-})(ErrorType || (exports.ErrorType = ErrorType = {}));
+})(ErrorType || (ErrorType = {}));
 /**
  * HTTP status codes mapped to error types
  */
-exports.ErrorStatusMap = {
+export const ErrorStatusMap = {
     [ErrorType.VALIDATION]: 400,
     [ErrorType.AUTHENTICATION]: 401,
     [ErrorType.AUTHORIZATION]: 403,
@@ -49,7 +46,7 @@ exports.ErrorStatusMap = {
 /**
  * Enhanced error class for better error reporting
  */
-class EnhancedError extends Error {
+export class EnhancedError extends Error {
     /**
      * Create a new enhanced error
      *
@@ -62,7 +59,7 @@ class EnhancedError extends Error {
         super(message);
         this.name = 'EnhancedError';
         this.type = type;
-        this.status = exports.ErrorStatusMap[type] || 500;
+        this.status = ErrorStatusMap[type] || 500;
         this.data = data;
         this.timestamp = new Date().toISOString();
         this.requestId = requestId;
@@ -110,11 +107,10 @@ class EnhancedError extends Error {
         };
     }
 }
-exports.EnhancedError = EnhancedError;
 /**
  * Error factory methods for common error types
  */
-exports.Errors = {
+export const Errors = {
     /**
      * Create a validation error
      *

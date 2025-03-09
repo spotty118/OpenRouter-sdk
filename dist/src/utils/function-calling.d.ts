@@ -1,7 +1,7 @@
 /**
  * Utility for working with function calling
  */
-import { FunctionDefinition, ToolCall } from '../interfaces';
+import { FunctionDefinition, ToolCall } from '../interfaces/index.js';
 /**
  * Handles function/tool calling capabilities
  */

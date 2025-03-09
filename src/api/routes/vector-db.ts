@@ -6,19 +6,15 @@
 
 import express from 'express';
 import { Request, Response, IRouter } from 'express';
-import { OpenRouter } from '../../core/open-router';
-import { OpenRouterError } from '../../errors/openrouter-error';
-import { Logger } from '../../utils/logger';
-import { 
-  VectorDocument, 
+import { OpenRouter } from '../../core/open-router.js';
+import { OpenRouterError } from '../../errors/openrouter-error.js';
+import { Logger } from '../../utils/logger.js';
+import { VectorDocument, 
   VectorSearchOptions, 
   VectorSearchResult,
-  IVectorDB
-} from '../../interfaces';
-import { 
-  ExtendedVectorDBConfig, 
-  VectorDBType 
-} from '../../utils/vector-db';
+  IVectorDB } from '../../interfaces/index.js';
+import { ExtendedVectorDBConfig, 
+  VectorDBType } from '../../utils/vector-db.js';
 
 const router = express.Router();
 const logger = new Logger('info');

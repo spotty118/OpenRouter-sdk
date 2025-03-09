@@ -5,7 +5,7 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
-import { Logger } from '../../utils/logger';
+import { Logger } from '../../utils/logger.js';
 
 const logger = new Logger('info');
 

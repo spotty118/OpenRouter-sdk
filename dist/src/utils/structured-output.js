@@ -1,16 +1,13 @@
-"use strict";
 /**
  * Structured output utility
  *
  * This module provides utility functions for working with OpenRouter's structured output capabilities,
  * which allow you to enforce specific JSON Schema validation on model responses.
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.StructuredOutput = void 0;
 /**
  * Utility class for working with structured outputs
  */
-class StructuredOutput {
+export class StructuredOutput {
     /**
      * Create a JSON object response format
      *
@@ -212,5 +209,4 @@ class StructuredOutput {
         };
     }
 }
-exports.StructuredOutput = StructuredOutput;
 //# sourceMappingURL=structured-output.js.map

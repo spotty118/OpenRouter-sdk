@@ -1,7 +1,7 @@
 /**
  * Utility for working with multimodal content
  */
-import { ContentPart } from '../interfaces';
+import { ContentPart } from '../interfaces/index.js';
 /**
  * Helper class for creating multimodal content
  */

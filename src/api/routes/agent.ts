@@ -6,18 +6,16 @@
 
 import express from 'express';
 import { Request, Response, IRouter } from 'express';
-import { OpenRouter } from '../../core/open-router';
-import { OpenRouterError } from '../../errors/openrouter-error';
-import { Logger } from '../../utils/logger';
-import { 
-  Agent, 
+import { OpenRouter } from '../../core/open-router.js';
+import { OpenRouterError } from '../../errors/openrouter-error.js';
+import { Logger } from '../../utils/logger.js';
+import { Agent, 
   Task, 
   Workflow, 
   VectorDocument, 
   VectorSearchOptions,
   TaskResult,
-  ExtendedAgentConfig
-} from '../../interfaces';
+  ExtendedAgentConfig } from '../../interfaces/index.js';
 
 const router = express.Router();
 const logger = new Logger('info');

@@ -1,7 +1,7 @@
 /**
  * Chroma vector database implementation for knowledge storage and retrieval
  */
-import { IVectorDB, VectorDBConfig, VectorDocument, VectorSearchOptions, VectorSearchResult } from '../interfaces';
+import { IVectorDB, VectorDBConfig, VectorDocument, VectorSearchOptions, VectorSearchResult } from '../interfaces/index.js';
 /**
  * Configuration options specific to Chroma
  */

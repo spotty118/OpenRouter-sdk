@@ -2,8 +2,8 @@
  * Example usage of the AIOrchestrator class
  */
 
-import { AIOrchestrator } from '../core/ai-orchestrator';
-import { ProcessMode } from '../interfaces';
+import { AIOrchestrator } from '../core/ai-orchestrator.js';
+import { ProcessMode } from '../interfaces/index.js';
 
 /**
  * This example demonstrates how to use the AIOrchestrator class to:

@@ -10,25 +10,25 @@ import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
 import { json, urlencoded } from 'body-parser';
-import { Logger } from '../utils/logger';
-import { OpenRouterError } from '../errors/openrouter-error';
-import { version } from '../../package.json';
+import { Logger } from '../utils/logger.js';
+import { OpenRouterError } from '../errors/openrouter-error.js';
+import  version  from '../../package.json' with { type: 'json' };
 
 // Import routes
-import chatRoutes from './routes/chat';
-import embeddingRoutes from './routes/embedding';
-import imageRoutes from './routes/image';
-import audioRoutes from './routes/audio';
-import modelRoutes from './routes/model';
-import agentRoutes from './routes/agent';
-import vectorDbRoutes from './routes/vector-db';
-import { swaggerRouter } from './swagger';
+import chatRoutes from './routes/chat.js';
+import embeddingRoutes from './routes/embedding.js';
+import imageRoutes from './routes/image.js';
+import audioRoutes from './routes/audio.js';
+import modelRoutes from './routes/model.js';
+import agentRoutes from './routes/agent.js';
+import vectorDbRoutes from './routes/vector-db.js';
+import { swaggerRouter } from './swagger.js';
 
 // Import middleware
-import { authenticate } from './middleware/auth';
-import { rateLimiter } from './middleware/rate-limiter';
-import { requestLogger } from './middleware/request-logger';
-import { detailedHealthCheck } from './middleware/detailed-health';
+import { authenticate } from './middleware/auth.js';
+import { rateLimiter } from './middleware/rate-limiter.js';
+import { requestLogger } from './middleware/request-logger.js';
+import { detailedHealthCheck } from './middleware/detailed-health.js';
 
 // Create Express app
 const app = express();

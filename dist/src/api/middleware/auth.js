@@ -1,14 +1,11 @@
-"use strict";
 /**
  * Authentication Middleware
  *
  * This middleware validates API keys for requests to protected endpoints.
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.authenticate = void 0;
-const logger_1 = require("../../utils/logger");
-const enhanced_error_1 = require("../../utils/enhanced-error");
-const logger = new logger_1.Logger('info');
+import { Logger } from '../../utils/logger.js';
+import { Errors } from '../../utils/enhanced-error.js';
+const logger = new Logger('info');
 /**
  * List of paths that don't require authentication
  */
@@ -25,7 +22,7 @@ const PUBLIC_PATHS = [
  * @param res - Express response object
  * @param next - Express next function
  */
-const authenticate = (req, res, next) => {
+export const authenticate = (req, res, next) => {
     const path = req.path;
     // Skip authentication for public endpoints
     if (PUBLIC_PATHS.some(publicPath => path === publicPath || path.startsWith(publicPath + '/'))) {
@@ -40,13 +37,13 @@ const authenticate = (req, res, next) => {
     const authHeaderStr = Array.isArray(authHeader) ? authHeader[0] : authHeader;
     if (!authHeaderStr || !authHeaderStr.startsWith('Bearer ')) {
         logger.warn(`Authentication failed: Missing or invalid Authorization header (${requestId})`);
-        const error = enhanced_error_1.Errors.authentication('Authentication failed. Please provide a valid API key in the Authorization header with the format "Bearer YOUR_API_KEY".', { header: 'invalid_format' }, requestId);
+        const error = Errors.authentication('Authentication failed. Please provide a valid API key in the Authorization header with the format "Bearer YOUR_API_KEY".', { header: 'invalid_format' }, requestId);
         return res.status(error.status).json(error.toResponse());
     }
     const apiKey = authHeaderStr.split(' ')[1];
     if (!apiKey) {
         logger.warn(`Authentication failed: Empty API key (${requestId})`);
-        const error = enhanced_error_1.Errors.authentication('Authentication failed. Please provide a valid API key.', { header: 'empty_key' }, requestId);
+        const error = Errors.authentication('Authentication failed. Please provide a valid API key.', { header: 'empty_key' }, requestId);
         return res.status(error.status).json(error.toResponse());
     }
     // TODO: In a production environment, validate the API key against a database
@@ -57,5 +54,4 @@ const authenticate = (req, res, next) => {
     // Continue to next middleware or route handler
     next();
 };
-exports.authenticate = authenticate;
 //# sourceMappingURL=auth.js.map

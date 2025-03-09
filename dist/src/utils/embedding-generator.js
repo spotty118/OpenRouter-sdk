@@ -1,14 +1,11 @@
-"use strict";
 /**
  * Utility for generating embeddings from text
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.EmbeddingGenerator = void 0;
-const logger_1 = require("./logger");
+import { Logger } from './logger.js';
 /**
  * Utility class for generating embeddings from text
  */
-class EmbeddingGenerator {
+export class EmbeddingGenerator {
     /**
      * Create a new embedding generator
      *
@@ -22,7 +19,7 @@ class EmbeddingGenerator {
             dimensions: config.dimensions,
             useOpenRouter: config.useOpenRouter || false
         };
-        this.logger = new logger_1.Logger('info');
+        this.logger = new Logger('info');
         if (this.config.useOpenRouter) {
             this.config.endpoint = 'https://openrouter.ai/api/v1/embeddings';
         }
@@ -128,5 +125,4 @@ class EmbeddingGenerator {
         return Array.from({ length: this.config.dimensions }, () => Math.random() * 2 - 1);
     }
 }
-exports.EmbeddingGenerator = EmbeddingGenerator;
 //# sourceMappingURL=embedding-generator.js.map

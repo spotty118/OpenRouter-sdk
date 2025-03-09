@@ -1,68 +1,31 @@
-"use strict";
 /**
  * Vector database implementation for knowledge storage and retrieval
  */
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.VectorDB = exports.VectorDBType = void 0;
-exports.createVectorDB = createVectorDB;
-const logger_1 = require("./logger");
-const fs = __importStar(require("fs"));
-const path = __importStar(require("path"));
-const chroma_vector_db_1 = require("./chroma-vector-db");
+import { Logger } from './logger.js';
+import * as fs from 'fs';
+import * as path from 'path';
+import { ChromaVectorDB } from './chroma-vector-db.js';
 /**
  * Vector database type
  */
-var VectorDBType;
+export var VectorDBType;
 (function (VectorDBType) {
     /** In-memory vector database with optional persistence */
     VectorDBType["InMemory"] = "in-memory";
     /** Chroma vector database */
     VectorDBType["Chroma"] = "chroma";
-})(VectorDBType || (exports.VectorDBType = VectorDBType = {}));
+})(VectorDBType || (VectorDBType = {}));
 /**
  * Create a vector database instance
  *
  * @param config - Configuration options
  * @returns A vector database instance
  */
-function createVectorDB(config) {
+export function createVectorDB(config) {
     const type = config.type || VectorDBType.InMemory;
     switch (type) {
         case VectorDBType.Chroma:
-            return new chroma_vector_db_1.ChromaVectorDB({
+            return new ChromaVectorDB({
                 ...config,
                 ...config.chroma
             });
@@ -77,7 +40,7 @@ function createVectorDB(config) {
  * This implementation provides a simple vector database that stores documents
  * and their embeddings in memory, with optional persistence to disk.
  */
-class VectorDB {
+export class VectorDB {
     /**
      * Create a new vector database
      *
@@ -94,7 +57,7 @@ class VectorDB {
             persistToDisk: config.persistToDisk || false,
             storagePath: config.storagePath || './.vectordb'
         };
-        this.logger = new logger_1.Logger('info');
+        this.logger = new Logger('info');
         // Initialize default namespace
         this.documents.set(this.defaultNamespace, new Map());
         this.vectors.set(this.defaultNamespace, new Map());
@@ -524,5 +487,4 @@ class VectorDB {
         return (sum + a.length) / (2 * a.length);
     }
 }
-exports.VectorDB = VectorDB;
 //# sourceMappingURL=vector-db.js.map

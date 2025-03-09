@@ -2,8 +2,8 @@
  * Example demonstrating the use of ChromaVectorDB with OpenRouter SDK
  */
 
-import { OpenRouter } from '../core/open-router';
-import { VectorDocument, VectorDBType, ExtendedVectorDBConfig, VectorSearchOptions } from '../interfaces/vector-db';
+import { OpenRouter } from '../core/open-router.js';
+import { VectorDocument, VectorDBType, ExtendedVectorDBConfig, VectorSearchOptions } from '../interfaces/vector-db.js';
 
 /**
  * This example demonstrates how to use the ChromaVectorDB integration

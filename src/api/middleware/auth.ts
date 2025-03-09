@@ -5,8 +5,8 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
-import { Logger } from '../../utils/logger';
-import { Errors } from '../../utils/enhanced-error';
+import { Logger } from '../../utils/logger.js';
+import { Errors } from '../../utils/enhanced-error.js';
 
 const logger = new Logger('info');
 

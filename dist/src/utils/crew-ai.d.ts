@@ -4,9 +4,9 @@
  * Provides utilities for creating, managing and orchestrating agents and tasks
  * in a multi-agent system.
  */
-import { Agent, Task, TaskResult, CrewConfig, TaskExecutionConfig, Workflow, TaskCallbacks, CrewRunStatus } from '../interfaces';
-import { ExtendedAgentConfig } from '../interfaces/crew-ai';
-import { VectorDocument, VectorSearchOptions, VectorSearchResult } from '../interfaces/vector-db';
+import { Agent, Task, TaskResult, CrewConfig, TaskExecutionConfig, Workflow, TaskCallbacks, CrewRunStatus } from '../interfaces/index.js';
+import { ExtendedAgentConfig } from '../interfaces/crew-ai.js';
+import { VectorDocument, VectorSearchOptions, VectorSearchResult } from '../interfaces/vector-db.js';
 /**
  * CrewAI utility class for orchestrating multiple AI agents
  */

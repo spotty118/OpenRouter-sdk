@@ -5,8 +5,7 @@
  * in a multi-agent system.
  */
 
-import {
-  Agent,
+import { Agent,
   Task,
   TaskResult,
   CrewConfig,
@@ -15,14 +14,13 @@ import {
   TaskStatus,
   Workflow,
   TaskCallbacks,
-  CrewRunStatus
-} from '../interfaces';
-import { ExtendedAgentConfig } from '../interfaces/crew-ai';
-import { VectorDocument, VectorSearchOptions, VectorSearchResult } from '../interfaces/vector-db';
+  CrewRunStatus } from '../interfaces/index.js';
+import { ExtendedAgentConfig } from '../interfaces/crew-ai.js';
+import { VectorDocument, VectorSearchOptions, VectorSearchResult } from '../interfaces/vector-db.js';
 
-import { Logger } from './logger';
-import { OpenRouterError } from '../errors/openrouter-error';
-import { VectorDB, createVectorDB, ExtendedVectorDBConfig, VectorDBType } from './vector-db';
+import { Logger } from './logger.js';
+import { OpenRouterError } from '../errors/openrouter-error.js';
+import { VectorDB, createVectorDB, ExtendedVectorDBConfig, VectorDBType } from './vector-db.js';
 
 /**
  * CrewAI utility class for orchestrating multiple AI agents

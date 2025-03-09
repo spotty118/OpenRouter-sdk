@@ -5,8 +5,8 @@
  * which enables real-time web search capabilities powered by Exa.
  */
 
-import { WebPlugin, Plugin } from '../interfaces/plugins';
-import { ModelSuffix } from '../interfaces/provider-routing';
+import { WebPlugin, Plugin } from '../interfaces/plugins.js';
+import { ModelSuffix } from '../interfaces/provider-routing.js';
 
 /**
  * Default web search prompt template used by the plugin

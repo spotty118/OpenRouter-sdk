@@ -1,10 +1,7 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.FunctionCalling = void 0;
 /**
  * Handles function/tool calling capabilities
  */
-class FunctionCalling {
+export class FunctionCalling {
     /**
      * Create a function definition object for use with AI models
      *
@@ -98,5 +95,4 @@ class FunctionCalling {
         return results;
     }
 }
-exports.FunctionCalling = FunctionCalling;
 //# sourceMappingURL=function-calling.js.map

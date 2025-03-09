@@ -4,7 +4,7 @@
  * This module provides utility functions for working with OpenRouter's structured output capabilities,
  * which allow you to enforce specific JSON Schema validation on model responses.
  */
-import { ResponseFormat, JsonSchema, JsonSchemaProperty } from '../interfaces/structured-outputs';
+import { ResponseFormat, JsonSchema, JsonSchemaProperty } from '../interfaces/structured-outputs.js';
 /**
  * Utility class for working with structured outputs
  */

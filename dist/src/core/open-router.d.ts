@@ -1,8 +1,8 @@
 /**
  * Core OpenRouter class implementation
  */
-import { OpenRouterConfig, CompletionRequest, EmbeddingRequest, ImageGenerationRequest, AudioTranscriptionRequest, CompletionResponse, EmbeddingResponse, ImageGenerationResponse, AudioTranscriptionResponse, ModelsResponse, ModelInfo, Plugin, ReasoningConfig, ProviderPreferences, ResponseFormat, ChatMessage, CostEstimate, Middleware, Agent, Task, TaskResult, CrewConfig, Workflow, TaskExecutionConfig, TaskCallbacks, CrewRunStatus, VectorDocument, VectorSearchOptions, VectorSearchResult, VectorDBConfig, IVectorDB } from '../interfaces';
-import { ExtendedAgentConfig } from '../interfaces/crew-ai';
+import { OpenRouterConfig, CompletionRequest, EmbeddingRequest, ImageGenerationRequest, AudioTranscriptionRequest, CompletionResponse, EmbeddingResponse, ImageGenerationResponse, AudioTranscriptionResponse, ModelsResponse, ModelInfo, Plugin, ReasoningConfig, ProviderPreferences, ResponseFormat, ChatMessage, CostEstimate, Middleware, Agent, Task, TaskResult, CrewConfig, Workflow, TaskExecutionConfig, TaskCallbacks, CrewRunStatus, VectorDocument, VectorSearchOptions, VectorSearchResult, VectorDBConfig, IVectorDB } from '../interfaces/index.js';
+import { ExtendedAgentConfig } from '../interfaces/crew-ai.js';
 /**
  * Main OpenRouter SDK class
  *

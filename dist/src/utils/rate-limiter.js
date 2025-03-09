@@ -1,13 +1,10 @@
-"use strict";
 /**
  * Rate limiting utility
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.RateLimiter = void 0;
 /**
  * Controls the rate of API requests
  */
-class RateLimiter {
+export class RateLimiter {
     /**
      * Create a new rate limiter
      * @param maxRequestsPerMinute - Maximum requests per minute (0 = no limit)
@@ -45,5 +42,4 @@ class RateLimiter {
         this.requestTimestamps.push(Date.now());
     }
 }
-exports.RateLimiter = RateLimiter;
 //# sourceMappingURL=rate-limiter.js.map

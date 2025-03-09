@@ -2,17 +2,15 @@
  * Vector database implementation for knowledge storage and retrieval
  */
 
-import { 
-  IVectorDB, 
+import { IVectorDB, 
   VectorDBConfig, 
   VectorDocument, 
   VectorSearchOptions, 
-  VectorSearchResult 
-} from '../interfaces';
-import { Logger } from './logger';
+  VectorSearchResult } from '../interfaces/index.js';
+import { Logger } from './logger.js';
 import * as fs from 'fs';
 import * as path from 'path';
-import { ChromaVectorDB, ChromaVectorDBConfig } from './chroma-vector-db';
+import { ChromaVectorDB, ChromaVectorDBConfig } from './chroma-vector-db.js';
 
 /**
  * Vector database type

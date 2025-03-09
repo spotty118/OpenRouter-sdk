@@ -1,9 +1,9 @@
 /**
  * Interface definitions for CrewAI agent orchestration
  */
-import { ToolDefinition } from './tools';
-import { ChatMessage } from './messaging';
-import { VectorDBConfig } from './vector-db';
+import { ToolDefinition } from './tools.js';
+import { ChatMessage } from './messaging.js';
+import { VectorDBConfig } from './vector-db.js';
 /**
  * Defines the agent capabilities
  */

@@ -2,16 +2,14 @@
  * Chroma vector database implementation for knowledge storage and retrieval
  */
 
-import { 
-  IVectorDB, 
+import { IVectorDB, 
   VectorDBConfig, 
   VectorDocument, 
   VectorSearchOptions, 
-  VectorSearchResult 
-} from '../interfaces';
-import { Logger } from './logger';
+  VectorSearchResult } from '../interfaces/index.js';
+import { Logger } from './logger.js';
 import { ChromaClient, Collection, IncludeEnum } from 'chromadb';
-import { EmbeddingGenerator } from './embedding-generator';
+import { EmbeddingGenerator } from './embedding-generator.js';
 
 // Define types for Chroma since we don't have the official types
 interface ChromaClientOptions {

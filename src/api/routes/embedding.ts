@@ -6,10 +6,10 @@
 
 import express from 'express';
 import { Request, Response } from 'express';
-import { OpenRouter } from '../../core/open-router';
-import { OpenRouterError } from '../../errors/openrouter-error';
-import { Logger } from '../../utils/logger';
-import { EmbeddingRequest, EmbeddingResponse } from '../../interfaces';
+import { OpenRouter } from '../../core/open-router.js';
+import { OpenRouterError } from '../../errors/openrouter-error.js';
+import { Logger } from '../../utils/logger.js';
+import { EmbeddingRequest, EmbeddingResponse } from '../../interfaces/index.js';
 
 const router = express.Router();
 const logger = new Logger('info');

@@ -4,8 +4,8 @@
  * This file exports the Express app and provides a function to start the server.
  */
 
-import { Logger } from '../utils/logger';
-import { version } from '../../package.json';
+import { Logger } from '../utils/logger.js';
+import  version  from '../../package.json' with { type: 'json' };
 import { Application } from 'express';
 
 // Handle the CommonJS module export correctly

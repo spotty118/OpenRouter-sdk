@@ -1,10 +1,7 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.MemoryCache = void 0;
 /**
  * Simple in-memory cache implementation
  */
-class MemoryCache {
+export class MemoryCache {
     /**
      * Create a new memory cache
      * @param defaultTTL - Default time-to-live in milliseconds (default: 1 hour)
@@ -57,5 +54,4 @@ class MemoryCache {
         this.cache.clear();
     }
 }
-exports.MemoryCache = MemoryCache;
 //# sourceMappingURL=memory-cache.js.map

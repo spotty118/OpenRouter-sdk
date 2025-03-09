@@ -1,8 +1,8 @@
 /**
  * Retry utility with exponential backoff
  */
-import { Logger } from './logger';
-import { OpenRouterError } from '../errors/openrouter-error';
+import { Logger } from './logger.js';
+import { OpenRouterError } from '../errors/openrouter-error.js';
 
 /**
  * Execute a function with automatic retries and exponential backoff

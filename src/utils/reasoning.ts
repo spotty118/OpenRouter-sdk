@@ -6,7 +6,7 @@
  * reasoning process used by the model.
  */
 
-import { ReasoningConfig } from '../interfaces/reasoning';
+import { ReasoningConfig } from '../interfaces/reasoning.js';
 
 /**
  * Utility class for working with reasoning tokens

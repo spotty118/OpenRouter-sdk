@@ -1,4 +1,3 @@
-"use strict";
 /**
  * Reasoning tokens utility
  *
@@ -6,12 +5,10 @@
  * in OpenRouter's API. Reasoning tokens provide a transparent look into the step-by-step
  * reasoning process used by the model.
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.Reasoning = void 0;
 /**
  * Utility class for working with reasoning tokens
  */
-class Reasoning {
+export class Reasoning {
     /**
      * Create a reasoning configuration with specific settings
      *
@@ -161,5 +158,4 @@ class Reasoning {
         };
     }
 }
-exports.Reasoning = Reasoning;
 //# sourceMappingURL=reasoning.js.map

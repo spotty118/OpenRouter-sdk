@@ -1,7 +1,7 @@
 /**
  * Response type interfaces
  */
-import { ChatMessage } from './messaging';
+import { ChatMessage } from './messaging.js';
 /**
  * Chat completion response
  */

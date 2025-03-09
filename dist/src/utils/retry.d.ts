@@ -1,7 +1,7 @@
 /**
  * Retry utility with exponential backoff
  */
-import { Logger } from './logger';
+import { Logger } from './logger.js';
 /**
  * Execute a function with automatic retries and exponential backoff
  *

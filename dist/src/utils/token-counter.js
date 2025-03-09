@@ -1,9 +1,6 @@
-"use strict";
 /**
  * Token counting utilities
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.countTokens = countTokens;
 /**
  * Count tokens in a text string (approximation)
  *
@@ -13,7 +10,7 @@ exports.countTokens = countTokens;
  * @param text - The text to count tokens for
  * @returns Approximate token count
  */
-function countTokens(text) {
+export function countTokens(text) {
     // This is a very simplified approximation (roughly 4 characters per token)
     // In production, use a proper tokenizer for your specific model
     return Math.ceil(text.length / 4);

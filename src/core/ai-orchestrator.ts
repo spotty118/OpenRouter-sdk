@@ -5,8 +5,7 @@
  * function calling, and knowledge management through vector databases.
  */
 
-import {
-  OpenRouterConfig,
+import { OpenRouterConfig,
   CompletionRequest,
   ChatMessage,
   Agent,
@@ -25,13 +24,12 @@ import {
   IVectorDB,
   FunctionDefinition,
   ToolCall,
-  ToolDefinition
-} from '../interfaces';
+  ToolDefinition } from '../interfaces/index.js';
 
-import { OpenRouter } from './open-router';
-import { FunctionCalling } from '../utils/function-calling';
-import { Logger } from '../utils/logger';
-import { OpenRouterError } from '../errors/openrouter-error';
+import { OpenRouter } from './open-router.js';
+import { FunctionCalling } from '../utils/function-calling.js';
+import { Logger } from '../utils/logger.js';
+import { OpenRouterError } from '../errors/openrouter-error.js';
 
 /**
  * AI Orchestrator class that integrates OpenRouter, CrewAI, and Vector DB capabilities

@@ -7,7 +7,7 @@
 import express, { Request, Response } from 'express';
 import swaggerJsdoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
-import { version } from '../../package.json';
+import  version  from '../../package.json' with { type: 'json' };
 
 // Swagger definition
 const swaggerOptions = {

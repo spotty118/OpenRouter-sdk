@@ -4,7 +4,7 @@
  * This module provides utility functions for working with OpenRouter's web search plugin,
  * which enables real-time web search capabilities powered by Exa.
  */
-import { WebPlugin, Plugin } from '../interfaces/plugins';
+import { WebPlugin, Plugin } from '../interfaces/plugins.js';
 /**
  * Utility class for working with OpenRouter's web search plugin
  */

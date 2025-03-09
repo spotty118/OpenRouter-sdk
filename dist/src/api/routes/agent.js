@@ -1,21 +1,16 @@
-"use strict";
 /**
  * Agent Routes
  *
  * API endpoints for agent orchestration and knowledge management.
  */
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-const express_1 = __importDefault(require("express"));
-const open_router_1 = require("../../core/open-router");
-const openrouter_error_1 = require("../../errors/openrouter-error");
-const logger_1 = require("../../utils/logger");
-const router = express_1.default.Router();
-const logger = new logger_1.Logger('info');
+import express from 'express';
+import { OpenRouter } from '../../core/open-router.js';
+import { OpenRouterError } from '../../errors/openrouter-error.js';
+import { Logger } from '../../utils/logger.js';
+const router = express.Router();
+const logger = new Logger('info');
 // Create a single instance of OpenRouter to reuse across routes
-const getOpenRouter = (apiKey) => new open_router_1.OpenRouter({ apiKey });
+const getOpenRouter = (apiKey) => new OpenRouter({ apiKey });
 /**
  * Create an agent
  *
@@ -46,13 +41,13 @@ router.post('/', async (req, res) => {
     catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         logger.error(`Create agent error: ${errorMessage}`, error);
-        const statusCode = (error instanceof openrouter_error_1.OpenRouterError) ? error.status : 500;
+        const statusCode = (error instanceof OpenRouterError) ? error.status : 500;
         res.status(statusCode).json({
             error: {
                 message: errorMessage || 'An error occurred while creating agent',
                 type: error instanceof Error ? error.name : 'server_error',
                 code: statusCode,
-                data: (error instanceof openrouter_error_1.OpenRouterError) ? error.data : null
+                data: (error instanceof OpenRouterError) ? error.data : null
             }
         });
     }
@@ -95,13 +90,13 @@ router.post('/task', async (req, res) => {
     catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         logger.error(`Create task error: ${errorMessage}`, error);
-        const statusCode = (error instanceof openrouter_error_1.OpenRouterError) ? error.status : 500;
+        const statusCode = (error instanceof OpenRouterError) ? error.status : 500;
         res.status(statusCode).json({
             error: {
                 message: errorMessage || 'An error occurred while creating task',
                 type: error instanceof Error ? error.name : 'server_error',
                 code: statusCode,
-                data: (error instanceof openrouter_error_1.OpenRouterError) ? error.data : null
+                data: (error instanceof OpenRouterError) ? error.data : null
             }
         });
     }
@@ -144,13 +139,13 @@ router.post('/workflow', async (req, res) => {
     catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         logger.error(`Create workflow error: ${errorMessage}`, error);
-        const statusCode = (error instanceof openrouter_error_1.OpenRouterError) ? error.status : 500;
+        const statusCode = (error instanceof OpenRouterError) ? error.status : 500;
         res.status(statusCode).json({
             error: {
                 message: errorMessage || 'An error occurred while creating workflow',
                 type: error instanceof Error ? error.name : 'server_error',
                 code: statusCode,
-                data: (error instanceof openrouter_error_1.OpenRouterError) ? error.data : null
+                data: (error instanceof OpenRouterError) ? error.data : null
             }
         });
     }
@@ -193,13 +188,13 @@ router.post('/task/execute', async (req, res) => {
     catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         logger.error(`Execute task error: ${errorMessage}`, error);
-        const statusCode = (error instanceof openrouter_error_1.OpenRouterError) ? error.status : 500;
+        const statusCode = (error instanceof OpenRouterError) ? error.status : 500;
         res.status(statusCode).json({
             error: {
                 message: errorMessage || 'An error occurred while executing task',
                 type: error instanceof Error ? error.name : 'server_error',
                 code: statusCode,
-                data: (error instanceof openrouter_error_1.OpenRouterError) ? error.data : null
+                data: (error instanceof OpenRouterError) ? error.data : null
             }
         });
     }
@@ -242,13 +237,13 @@ router.post('/workflow/execute', async (req, res) => {
     catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         logger.error(`Execute workflow error: ${errorMessage}`, error);
-        const statusCode = (error instanceof openrouter_error_1.OpenRouterError) ? error.status : 500;
+        const statusCode = (error instanceof OpenRouterError) ? error.status : 500;
         res.status(statusCode).json({
             error: {
                 message: errorMessage || 'An error occurred while executing workflow',
                 type: error instanceof Error ? error.name : 'server_error',
                 code: statusCode,
-                data: (error instanceof openrouter_error_1.OpenRouterError) ? error.data : null
+                data: (error instanceof OpenRouterError) ? error.data : null
             }
         });
     }
@@ -293,13 +288,13 @@ router.post('/:agentId/knowledge', async (req, res) => {
     catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         logger.error(`Add knowledge error: ${errorMessage}`, error);
-        const statusCode = (error instanceof openrouter_error_1.OpenRouterError) ? error.status : 500;
+        const statusCode = (error instanceof OpenRouterError) ? error.status : 500;
         res.status(statusCode).json({
             error: {
                 message: errorMessage || 'An error occurred while adding knowledge',
                 type: error instanceof Error ? error.name : 'server_error',
                 code: statusCode,
-                data: (error instanceof openrouter_error_1.OpenRouterError) ? error.data : null
+                data: (error instanceof OpenRouterError) ? error.data : null
             }
         });
     }
@@ -347,13 +342,13 @@ router.post('/:agentId/knowledge/batch', async (req, res) => {
     catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         logger.error(`Add batch knowledge error: ${errorMessage}`, error);
-        const statusCode = (error instanceof openrouter_error_1.OpenRouterError) ? error.status : 500;
+        const statusCode = (error instanceof OpenRouterError) ? error.status : 500;
         res.status(statusCode).json({
             error: {
                 message: errorMessage || 'An error occurred while adding batch knowledge',
                 type: error instanceof Error ? error.name : 'server_error',
                 code: statusCode,
-                data: (error instanceof openrouter_error_1.OpenRouterError) ? error.data : null
+                data: (error instanceof OpenRouterError) ? error.data : null
             }
         });
     }
@@ -397,13 +392,13 @@ router.get('/:agentId/knowledge/search', async (req, res) => {
     catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         logger.error(`Search knowledge error: ${errorMessage}`, error);
-        const statusCode = (error instanceof openrouter_error_1.OpenRouterError) ? error.status : 500;
+        const statusCode = (error instanceof OpenRouterError) ? error.status : 500;
         res.status(statusCode).json({
             error: {
                 message: errorMessage || 'An error occurred while searching knowledge',
                 type: error instanceof Error ? error.name : 'server_error',
                 code: statusCode,
-                data: (error instanceof openrouter_error_1.OpenRouterError) ? error.data : null
+                data: (error instanceof OpenRouterError) ? error.data : null
             }
         });
     }
@@ -439,13 +434,13 @@ router.get('/:agentId/knowledge/:documentId', async (req, res) => {
     catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         logger.error(`Get knowledge document error: ${errorMessage}`, error);
-        const statusCode = (error instanceof openrouter_error_1.OpenRouterError) ? error.status : 500;
+        const statusCode = (error instanceof OpenRouterError) ? error.status : 500;
         res.status(statusCode).json({
             error: {
                 message: errorMessage || 'An error occurred while getting knowledge document',
                 type: error instanceof Error ? error.name : 'server_error',
                 code: statusCode,
-                data: (error instanceof openrouter_error_1.OpenRouterError) ? error.data : null
+                data: (error instanceof OpenRouterError) ? error.data : null
             }
         });
     }
@@ -481,16 +476,16 @@ router.delete('/:agentId/knowledge/:documentId', async (req, res) => {
     catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         logger.error(`Delete knowledge document error: ${errorMessage}`, error);
-        const statusCode = (error instanceof openrouter_error_1.OpenRouterError) ? error.status : 500;
+        const statusCode = (error instanceof OpenRouterError) ? error.status : 500;
         res.status(statusCode).json({
             error: {
                 message: errorMessage || 'An error occurred while deleting knowledge document',
                 type: error instanceof Error ? error.name : 'server_error',
                 code: statusCode,
-                data: (error instanceof openrouter_error_1.OpenRouterError) ? error.data : null
+                data: (error instanceof OpenRouterError) ? error.data : null
             }
         });
     }
 });
-exports.default = router;
+export default router;
 //# sourceMappingURL=agent.js.map

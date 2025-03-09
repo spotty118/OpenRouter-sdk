@@ -1,7 +1,7 @@
 /**
  * In-memory cache implementation
  */
-import { Cache } from '../interfaces/cache';
+import { Cache } from '../interfaces/cache.js';
 /**
  * Simple in-memory cache implementation
  */

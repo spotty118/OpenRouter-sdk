@@ -1,7 +1,4 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.retry = retry;
-const openrouter_error_1 = require("../errors/openrouter-error");
+import { OpenRouterError } from '../errors/openrouter-error.js';
 /**
  * Execute a function with automatic retries and exponential backoff
  *
@@ -12,7 +9,7 @@ const openrouter_error_1 = require("../errors/openrouter-error");
  * @param baseDelayMs - Base delay for exponential backoff (default: 1000ms)
  * @returns Promise resolving to the function result
  */
-async function retry(fn, maxRetries, logger, baseDelayMs = 1000) {
+export async function retry(fn, maxRetries, logger, baseDelayMs = 1000) {
     let lastError;
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
@@ -25,7 +22,7 @@ async function retry(fn, maxRetries, logger, baseDelayMs = 1000) {
                 throw error;
             }
             // Don't retry for certain types of errors
-            if (error instanceof openrouter_error_1.OpenRouterError) {
+            if (error instanceof OpenRouterError) {
                 // Don't retry on 4xx errors except for 429 (too many requests)
                 if (error.status >= 400 && error.status < 500 && error.status !== 429) {
                     throw error;

@@ -7,10 +7,10 @@
 import express from 'express';
 import { Request, Response } from 'express';
 import multer from 'multer';
-import { OpenRouter } from '../../core/open-router';
-import { OpenRouterError } from '../../errors/openrouter-error';
-import { Logger } from '../../utils/logger';
-import { AudioTranscriptionRequest, AudioTranscriptionResponse } from '../../interfaces';
+import { OpenRouter } from '../../core/open-router.js';
+import { OpenRouterError } from '../../errors/openrouter-error.js';
+import { Logger } from '../../utils/logger.js';
+import { AudioTranscriptionRequest, AudioTranscriptionResponse } from '../../interfaces/index.js';
 
 const router = express.Router();
 const logger = new Logger('info');

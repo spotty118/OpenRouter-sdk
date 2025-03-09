@@ -2,7 +2,7 @@
  * Utility for generating embeddings from text
  */
 
-import { Logger } from './logger';
+import { Logger } from './logger.js';
 
 /**
  * Configuration options for embedding generation

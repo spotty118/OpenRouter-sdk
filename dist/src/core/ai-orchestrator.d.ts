@@ -4,8 +4,8 @@
  * This class provides a unified interface for working with AI models, agent orchestration,
  * function calling, and knowledge management through vector databases.
  */
-import { OpenRouterConfig, CompletionRequest, ChatMessage, Agent, ExtendedAgentConfig, Task, TaskResult, CrewConfig, Workflow, TaskExecutionConfig, TaskCallbacks, CrewRunStatus, VectorDocument, VectorSearchOptions, VectorSearchResult, VectorDBConfig, IVectorDB, FunctionDefinition, ToolCall } from '../interfaces';
-import { OpenRouter } from './open-router';
+import { OpenRouterConfig, CompletionRequest, ChatMessage, Agent, ExtendedAgentConfig, Task, TaskResult, CrewConfig, Workflow, TaskExecutionConfig, TaskCallbacks, CrewRunStatus, VectorDocument, VectorSearchOptions, VectorSearchResult, VectorDBConfig, IVectorDB, FunctionDefinition, ToolCall } from '../interfaces/index.js';
+import { OpenRouter } from './open-router.js';
 /**
  * AI Orchestrator class that integrates OpenRouter, CrewAI, and Vector DB capabilities
  */
@@ -109,7 +109,7 @@ export declare class AIOrchestrator {
      */
     chat(options: Partial<CompletionRequest> & {
         messages: ChatMessage[];
-    }): Promise<import("../interfaces").CompletionResponse>;
+    }): Promise<import("../interfaces/responses.js").CompletionResponse>;
     /**
      * Create and register a new agent
      *

@@ -7,12 +7,12 @@
 import express from 'express';
 import { Request, Response } from 'express';
 import Joi from 'joi';
-import { OpenRouter } from '../../core/open-router';
-import { Logger } from '../../utils/logger';
-import { OpenRouterError } from '../../errors/openrouter-error';
-import { Errors } from '../../utils/enhanced-error';
-import { CompletionRequest, ChatMessage, CompletionResponse } from '../../interfaces';
-import { validate, ValidateLocation, CommonSchemas } from '../middleware/validation';
+import { OpenRouter } from '../../core/open-router.js';
+import { Logger } from '../../utils/logger.js';
+import { OpenRouterError } from '../../errors/openrouter-error.js';
+import { Errors } from '../../utils/enhanced-error.js';
+import { CompletionRequest, ChatMessage, CompletionResponse } from '../../interfaces/index.js';
+import { validate, ValidateLocation, CommonSchemas } from '../middleware/validation.js';
 
 const router = express.Router();
 const logger = new Logger('info');
