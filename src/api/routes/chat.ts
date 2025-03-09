@@ -6,41 +6,60 @@
 
 import express from 'express';
 import { Request, Response } from 'express';
+import Joi from 'joi';
 import { OpenRouter } from '../../core/open-router';
 import { Logger } from '../../utils/logger';
 import { OpenRouterError } from '../../errors/openrouter-error';
+import { Errors } from '../../utils/enhanced-error';
 import { CompletionRequest, ChatMessage, CompletionResponse } from '../../interfaces';
+import { validate, ValidateLocation, CommonSchemas } from '../middleware/validation';
 
 const router = express.Router();
 const logger = new Logger('info');
 // Create a single instance of OpenRouter to reuse across routes
 const getOpenRouter = (apiKey: string) => new OpenRouter({ apiKey });
 
+// Validation schema for chat completion requests
+const chatCompletionSchema = {
+  location: ValidateLocation.BODY,
+  schema: Joi.object({
+    messages: CommonSchemas.messages,
+    model: Joi.string().min(1),
+    max_tokens: Joi.number().integer().min(1),
+    temperature: Joi.number().min(0).max(2),
+    top_p: Joi.number().min(0).max(1),
+    top_k: Joi.number().integer().min(1),
+    stream: Joi.boolean(),
+    presence_penalty: Joi.number().min(-2).max(2),
+    frequency_penalty: Joi.number().min(-2).max(2),
+    additional_stop_sequences: Joi.array().items(Joi.string()),
+    seed: Joi.number().integer(),
+    response_format: Joi.object(),
+    tools: Joi.array().items(Joi.object()),
+    tool_choice: Joi.alternatives().try(Joi.string(), Joi.object()),
+    plugins: Joi.array().items(Joi.object()),
+    reasoning: Joi.object(),
+    include_reasoning: Joi.boolean(),
+    user: Joi.string()
+  }).required()
+};
+
 /**
  * Create a chat completion
  * 
  * POST /api/v1/chat/completions
  */
-router.post('/completions', async (req: Request, res: Response) => {
+router.post('/completions', validate([chatCompletionSchema]), async (req: Request, res: Response) => {
   try {
     const apiKey = req.app.locals.apiKey;
+    const requestId = req.app.locals.requestId;
     const options: Partial<CompletionRequest> & { messages: ChatMessage[] } = req.body;
-    
-    // Validate required fields
-    if (!options.messages || !Array.isArray(options.messages) || options.messages.length === 0) {
-      return res.status(400).json({
-        error: {
-          message: 'Invalid request: messages array is required',
-          type: 'invalid_request_error'
-        }
-      });
-    }
 
     // Initialize OpenRouter with the API key
     const openRouter = getOpenRouter(apiKey);
     
     // Log the request (excluding sensitive data)
-    logger.info(`Chat completion request: model=${options.model || 'default'}, messages=${options.messages.length}`);
+    logger.info(`Chat completion request [${requestId}]: model=${options.model || 'default'}, messages=${options.messages.length}`);
     
     // Send request to OpenRouter
     const response = await openRouter.createChatCompletion(options);
@@ -49,17 +68,23 @@ router.post('/completions', async (req: Request, res: Response) => {
     res.status(200).json(response);
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error(`Chat completion error: ${errorMessage}`, error);
+    logger.error(`Chat completion error [${req.app.locals.requestId}]: ${errorMessage}`, error);
     
-    const statusCode = (error instanceof OpenRouterError) ? error.status : 500;
-    res.status(statusCode).json({
-      error: {
-        message: errorMessage || 'An error occurred during chat completion',
-        type: error instanceof Error ? error.name : 'server_error',
-        code: statusCode, 
-        data: (error instanceof OpenRouterError) ? error.data : null
-      }
-    });
+    if (error instanceof OpenRouterError) {
+      const enhancedError = Errors.externalApi(
+        errorMessage || 'An error occurred during chat completion',
+        { originalError: error.data },
+        req.app.locals.requestId
+      );
+      return res.status(enhancedError.status).json(enhancedError.toResponse());
+    }
+    
+    const serverError = Errors.server(
+      errorMessage || 'An error occurred during chat completion',
+      null,
+      req.app.locals.requestId
+    );
+    return res.status(serverError.status).json(serverError.toResponse());
   }
 });
 
@@ -68,26 +93,17 @@ router.post('/completions', async (req: Request, res: Response) => {
  * 
  * POST /api/v1/chat/completions/stream
  */
-router.post('/completions/stream', async (req: Request, res: Response) => {
+router.post('/completions/stream', validate([chatCompletionSchema]), async (req: Request, res: Response) => {
   try {
     const apiKey = req.app.locals.apiKey;
+    const requestId = req.app.locals.requestId;
     const options: Partial<CompletionRequest> & { messages: ChatMessage[] } = req.body;
-    
-    // Validate required fields
-    if (!options.messages || !Array.isArray(options.messages) || options.messages.length === 0) {
-      return res.status(400).json({
-        error: {
-          message: 'Invalid request: messages array is required',
-          type: 'invalid_request_error'
-        }
-      });
-    }
 
     // Initialize OpenRouter with the API key
     const openRouter = getOpenRouter(apiKey);
     
     // Log the request (excluding sensitive data)
-    logger.info(`Stream chat completion request: model=${options.model || 'default'}, messages=${options.messages.length}`);
+    logger.info(`Stream chat completion request [${requestId}]: model=${options.model || 'default'}, messages=${options.messages.length}`);
     
     // Set up SSE headers
     res.setHeader('Content-Type', 'text/event-stream');
@@ -96,7 +112,7 @@ router.post('/completions/stream', async (req: Request, res: Response) => {
     
     // Handle client disconnect
     req.on('close', () => {
-      logger.info('Client closed connection');
+      logger.info(`Client closed connection [${requestId}]`);
     });
     
     // Stream responses
@@ -113,15 +129,14 @@ router.post('/completions/stream', async (req: Request, res: Response) => {
         ? streamError.message 
         : 'Unknown streaming error';
       
-      logger.error(`Stream error: ${errorMessage}`, streamError);
+      logger.error(`Stream error [${requestId}]: ${errorMessage}`, streamError);
       
+      const enhancedError = streamError instanceof OpenRouterError
+        ? Errors.externalApi(errorMessage, { originalError: streamError }, requestId)
+        : Errors.server(errorMessage, { originalError: String(streamError) }, requestId);
+        
       // Send error as SSE event
-      res.write(`data: ${JSON.stringify({
-        error: {
-          message: errorMessage || 'An error occurred during streaming',
-          type: streamError instanceof Error ? streamError.name : 'stream_error'
-        }
-      })}\n\n`);
+      res.write(`data: ${JSON.stringify(enhancedError.toResponse())}\n\n`);
       
       res.end();
     }
@@ -130,18 +145,23 @@ router.post('/completions/stream', async (req: Request, res: Response) => {
       ? error.message 
       : 'Unknown error setting up stream';
     
-    logger.error(`Stream setup error: ${errorMessage}`, error);
+    logger.error(`Stream setup error [${req.app.locals.requestId}]: ${errorMessage}`, error);
     
-    const statusCode = error instanceof OpenRouterError ? error.status : 500;
+    if (error instanceof OpenRouterError) {
+      const enhancedError = Errors.externalApi(
+        errorMessage || 'An error occurred setting up the stream',
+        { originalError: error.data },
+        req.app.locals.requestId
+      );
+      return res.status(enhancedError.status).json(enhancedError.toResponse());
+    }
     
-    res.status(statusCode).json({
-      error: {
-        message: errorMessage || 'An error occurred setting up the stream',
-        type: error instanceof Error ? error.name : 'server_error',
-        code: statusCode,
-        data: (error instanceof OpenRouterError) ? error.data : null
-      }
-    });
+    const serverError = Errors.server(
+      errorMessage || 'An error occurred setting up the stream',
+      null,
+      req.app.locals.requestId
+    );
+    return res.status(serverError.status).json(serverError.toResponse());
   }
 });
 
