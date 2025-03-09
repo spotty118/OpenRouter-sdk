@@ -3,7 +3,8 @@
  */
 
 import { OpenRouter } from '../core/open-router.js';
-import { VectorDocument, VectorDBType, ExtendedVectorDBConfig, VectorSearchOptions } from '../interfaces/vector-db.js';
+import { VectorDocument, VectorSearchOptions, VectorSearchResult, ChromaVectorDBConfig, VectorDBType } from '../interfaces/vector-db.js';
+import { ExtendedVectorDBConfig } from '../utils/vector-db.js';
 
 /**
  * This example demonstrates how to use the ChromaVectorDB integration
@@ -18,17 +19,18 @@ async function main() {
 
   console.log('Creating Chroma vector database with deep integration...');
   
-  // Create a Chroma vector database
-  const vectorDb = openRouter.createVectorDb<ExtendedVectorDBConfig>({
+  // Create a Chroma vector database with proper typing
+  const vectorDb = openRouter.createVectorDb({
     dimensions: 1536,
-    similarityMetric: 'cosine', // Set similarity metric at the top level
-    type: VectorDBType.Chroma,
-    chroma: {
-      chromaUrl: 'http://localhost:8000',
-      collectionPrefix: 'openrouter-example-',
-      useInMemory: true // Use in-memory Chroma for this example
-    }
-  });
+    similarityMetric: 'cosine',
+    type: VectorDBType.CHROMA,
+    chromaUrl: 'http://localhost:8000',
+    collectionPrefix: 'openrouter-example-',
+    useInMemory: true
+  } as unknown as ExtendedVectorDBConfig);
+
+  // Define default namespace for operations
+  const defaultNamespace = 'default';
 
   // Sample documents about electric vehicles
   const documents: VectorDocument[] = [
@@ -66,49 +68,57 @@ async function main() {
 
   console.log(`Adding ${documents.length} documents to vector database...`);
   
-  // Add documents to the vector database
-  const docIds = await vectorDb.addDocuments(documents);
+  // Add documents to the vector database with namespace
+  const docIds = await vectorDb.addDocuments(documents, defaultNamespace);
   console.log(`Added documents with IDs: ${docIds.join(', ')}`);
 
   // List all namespaces
   const namespaces = await vectorDb.listNamespaces();
   console.log(`Available namespaces: ${namespaces.join(', ')}`);
-  // Search for documents about battery technology
+
+  // Search for documents about battery technology with proper options
   console.log('\nSearching for documents about battery technology:');
-  const batteryResults = await vectorDb.searchByText('battery technology improvements', { limit: 2 });
+  const batteryResults = await vectorDb.searchByText('battery technology improvements', {
+    limit: 2,
+    namespace: defaultNamespace
+  } as VectorSearchOptions);
   
-  batteryResults.forEach((result, i) => {
+  batteryResults.forEach((result: VectorSearchResult, i: number) => {
     console.log(`\nResult ${i + 1} (Score: ${result.score.toFixed(4)}):`);
     console.log(`Content: ${result.document.content}`);
     console.log(`Metadata: ${JSON.stringify(result.document.metadata)}`);
   });
 
-  // Search for documents about charging infrastructure
+  // Search for documents about charging infrastructure with proper options
   console.log('\nSearching for documents about charging infrastructure:');
-  const chargingResults = await vectorDb.searchByText('charging stations infrastructure', { limit: 2 });
+  const chargingResults = await vectorDb.searchByText('charging stations infrastructure', {
+    limit: 2,
+    namespace: defaultNamespace
+  } as VectorSearchOptions);
   
-  chargingResults.forEach((result, i) => {
+  chargingResults.forEach((result: VectorSearchResult, i: number) => {
     console.log(`\nResult ${i + 1} (Score: ${result.score.toFixed(4)}):`);
     console.log(`Content: ${result.document.content}`);
     console.log(`Metadata: ${JSON.stringify(result.document.metadata)}`);
   });
 
-  // Search with metadata filter
+  // Search with metadata filter and proper options
   console.log('\nSearching for documents from technology reports:');
   const techReportResults = await vectorDb.searchByText('electric vehicles technology', {
     limit: 3,
-    filter: (metadata) => metadata.source === 'technology-report'
-  });
+    namespace: defaultNamespace,
+    filter: (metadata: Record<string, any>) => metadata.source === 'technology-report'
+  } as VectorSearchOptions);
   
-  techReportResults.forEach((result, i) => {
+  techReportResults.forEach((result: VectorSearchResult, i: number) => {
     console.log(`\nResult ${i + 1} (Score: ${result.score.toFixed(4)}):`);
     console.log(`Content: ${result.document.content}`);
     console.log(`Metadata: ${JSON.stringify(result.document.metadata)}`);
   });
 
-  // Get a specific document by ID
+  // Get a specific document by ID with namespace
   console.log('\nRetrieving document by ID:');
-  const specificDoc = await vectorDb.getDocument('ev-market-1');
+  const specificDoc = await vectorDb.getDocument('ev-market-1', defaultNamespace);
   if (specificDoc) {
     console.log(`Document ID: ${specificDoc.id}`);
     console.log(`Content: ${specificDoc.content}`);
@@ -119,7 +129,7 @@ async function main() {
 
   console.log('\nDemonstrating advanced ChromaDB integration:');
 
-  // Create an agent with knowledge base
+  // Create an agent with knowledge base using proper config typing
   console.log('\nCreating an agent with Chroma knowledge base...');
   
   const researchAgent = openRouter.createAgent({
@@ -129,21 +139,19 @@ async function main() {
     model: 'anthropic/claude-3-opus',
     systemMessage: 'You are a research specialist focused on electric vehicle market trends.',
     memory: {
-      vectorDb: <ExtendedVectorDBConfig>{
+      vectorDb: {
         dimensions: 1536,
-        type: VectorDBType.Chroma,
-        chroma: {
-          chromaUrl: 'http://localhost:8000',
-          collectionPrefix: 'agent-',
-          useInMemory: true
-        }
-      }
+        type: VectorDBType.CHROMA,
+        chromaUrl: 'http://localhost:8000',
+        collectionPrefix: 'agent-',
+        useInMemory: true
+      } as ChromaVectorDBConfig
     }
   });
 
-  // Add knowledge to the agent
+  // Add knowledge to the agent with proper namespace
   console.log('Adding knowledge to the agent...');
-  await openRouter.addAgentKnowledgeBatch('ev-researcher', documents);
+  await openRouter.addAgentKnowledgeBatch('ev-researcher', documents, defaultNamespace);
 
   // Create a task for the agent
   const researchTask = openRouter.createTask({
@@ -154,7 +162,7 @@ async function main() {
     expectedOutput: 'A comprehensive report on EV market trends with key statistics'
   });
 
-  // Execute the task
+  // Execute the task with proper typing
   console.log('\nExecuting research task with knowledge-enabled agent...');
   const result = await openRouter.executeTask(researchTask, researchAgent);
   
@@ -162,17 +170,18 @@ async function main() {
   console.log(`Status: ${result.status}`);
   console.log(`Output: ${result.output}`);
 
-  // Clean up - delete a document
+  // Clean up - delete a document with namespace
   console.log('\nDeleting a document:');
-  const deleteResult = await vectorDb.deleteDocument('ev-market-6');
+  const deleteResult = await vectorDb.deleteDocument('ev-market-6', defaultNamespace);
   console.log(`Document deleted: ${deleteResult}`);
 
-  // Verify deletion
-  const remainingDocs = await vectorDb.searchByText('government incentives', { limit: 1 });
+  // Verify deletion with proper options
+  const remainingDocs = await vectorDb.searchByText('government incentives', {
+    limit: 1,
+    namespace: defaultNamespace
+  } as VectorSearchOptions);
   console.log(`Search for deleted content returned ${remainingDocs.length} results`);
 
-  // Show total document count
-  const defaultNamespace = namespaces[0] || 'default';
   console.log(`Demonstration complete. ChromaDB integration is fully functional.`);
 }
 

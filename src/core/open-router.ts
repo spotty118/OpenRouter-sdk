@@ -30,8 +30,7 @@ import { OpenRouterConfig,
   VectorDocument,
   VectorSearchOptions,
   VectorSearchResult,
-  VectorDBConfig,
-  IVectorDB } from '../interfaces/index.js';
+  VectorDB } from '../interfaces/index.js';
 
 import { Logger,
   MemoryCache,
@@ -42,9 +41,8 @@ import { Logger,
   StructuredOutput,
   Reasoning,
   CrewAI,
-  VectorDB,
-  createVectorDB,
-  ExtendedVectorDBConfig } from '../utils/index.js';
+  createVectorDB } from '../utils/index.js';
+import { ExtendedVectorDBConfig } from '../utils/vector-db.js';
 
 import { OpenRouterError } from '../errors/openrouter-error.js';
 import { ExtendedAgentConfig } from '../interfaces/crew-ai.js';
@@ -71,7 +69,7 @@ export class OpenRouter {
   private totalCost: number = 0;
   private requestsInFlight: Set<AbortController> = new Set();
   private crewAI: CrewAI;
-  private vectorDbs: Map<string, IVectorDB> = new Map();
+  private vectorDbs: Map<string, VectorDB> = new Map();
 
   /**
    * Create a new OpenRouter SDK instance
@@ -1128,18 +1126,18 @@ export class OpenRouter {
    * });
    * ```
    */
-  createVectorDb<T extends VectorDBConfig = VectorDBConfig>(config: T): IVectorDB {
+  createVectorDb(config: ExtendedVectorDBConfig): VectorDB {
     const id = `vectordb_${Date.now()}`;
     
     // Use the factory function to create the appropriate vector database
-    let vectorDb: IVectorDB;
+    let vectorDb;
     
     if ('type' in config && Object.prototype.hasOwnProperty.call(config, 'type')) {
       // Extended config with type
       vectorDb = createVectorDB(config as ExtendedVectorDBConfig);
     } else {
       // Standard config, use in-memory VectorDB
-      vectorDb = new VectorDB(config);
+      vectorDb = createVectorDB(config);
     }
     
     this.vectorDbs.set(id, vectorDb);

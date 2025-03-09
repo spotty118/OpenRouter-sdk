@@ -6,10 +6,11 @@
  * and automatic relevance filtering with smart retrieval.
  */
 
-import { VectorDB, createVectorDB, ExtendedVectorDBConfig, VectorDBType } from './vector-db.js';
+import { createVectorDB } from './vector-db.js';
 import { EmbeddingGenerator } from './embedding-generator.js';
 import { ChatMessage } from '../interfaces/index.js';
-import { VectorDocument, VectorSearchOptions, VectorSearchResult, IVectorDB } from '../interfaces/vector-db.js';
+import { VectorDB, VectorDocument, VectorSearchOptions, VectorSearchResult, ExtendedVectorDBConfig } from '../interfaces/vector-db.js';
+import { VectorDBType } from './vector-db.js';
 import { Logger } from './logger.js';
 import { OpenRouterError } from '../errors/openrouter-error.js';
 
@@ -103,7 +104,7 @@ export class AgentMemory {
   private agentId: string;
   private config: AgentMemoryConfig;
   private shortTermMemory: ChatMessage[] = [];
-  private vectorDb: VectorDB | IVectorDB | null = null;
+  private vectorDb: VectorDB | null = null;
   private embeddingGenerator: EmbeddingGenerator | null = null;
   private logger: Logger;
   private reflectionThreshold: number = 5; // Number of messages before triggering reflection
@@ -146,7 +147,10 @@ export class AgentMemory {
     if (!this.config.vectorDb) return;
     
     try {
-      this.vectorDb = createVectorDB(this.config.vectorDb);
+      this.vectorDb = createVectorDB({
+        ...this.config.vectorDb,
+        type: VectorDBType.Chroma
+      });
       this.logger.debug(`Initialized vector database for agent ${this.agentId}`);
     } catch (error) {
       this.logger.error(`Failed to initialize vector database: ${error instanceof Error ? error.message : String(error)}`);
@@ -194,12 +198,14 @@ export class AgentMemory {
    * @param message - The message to index
    * @returns Promise resolving to the memory entry ID
    */
-  private async indexMessage(message: ChatMessage): Promise<string> {
+  private async indexMessage(message: ChatMessage): Promise<void> {
     if (!this.vectorDb || !this.embeddingGenerator) {
       throw new OpenRouterError('Long-term memory not initialized', 400, null);
     }
     
     const content = message.content.toString();
+    const embedding = await this.embeddingGenerator.generateEmbedding(content);
+    
     const document: VectorDocument = {
       id: `memory-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
       content,
@@ -210,7 +216,11 @@ export class AgentMemory {
       }
     };
     
-    return this.vectorDb.addDocument(document, this.config.namespace);
+    await this.vectorDb.addDocument({
+      collectionName: this.config.namespace || 'default',
+      document,
+      embedding
+    });
   }
 
   /**
@@ -262,7 +272,13 @@ export class AgentMemory {
       }
     };
     
-    await this.vectorDb.addDocument(document, this.config.namespace);
+    const embedding = await this.embeddingGenerator.generateEmbedding(reflectionContent);
+    
+    await this.vectorDb.addDocument({
+      collectionName: this.config.namespace || 'default',
+      document,
+      embedding
+    });
     this.logger.debug(`Created reflection for agent ${this.agentId}`);
   }
 
@@ -289,18 +305,20 @@ export class AgentMemory {
    * @param options - Search options
    * @returns Promise resolving to an array of relevant memories
    */
-  async retrieveRelevantMemories(query: string, options?: VectorSearchOptions): Promise<VectorSearchResult[]> {
+  async retrieveRelevantMemories(query: string, options?: Partial<VectorSearchOptions>): Promise<VectorSearchResult[]> {
     if (!this.vectorDb || !this.embeddingGenerator) {
       throw new OpenRouterError('Long-term memory not initialized', 400, null);
     }
     
     const searchOptions: VectorSearchOptions = {
+      collectionName: this.config.namespace || 'default',
+      query,
       limit: this.config.retention?.maxRecallItems || 5,
       minScore: this.config.retention?.relevanceThreshold || 0.7,
       ...options
     };
     
-    return this.vectorDb.searchByText(query, searchOptions);
+    return this.vectorDb.search(searchOptions);
   }
 
   /**
@@ -311,7 +329,7 @@ export class AgentMemory {
    * @param metadata - Additional metadata
    * @returns Promise resolving to the memory ID
    */
-  async storeMemory(content: string, type: string = 'knowledge', metadata: Record<string, any> = {}): Promise<string> {
+  async storeMemory(content: string, type: string = 'knowledge', metadata: Record<string, any> = {}): Promise<void> {
     if (!this.vectorDb || !this.embeddingGenerator) {
       throw new OpenRouterError('Long-term memory not initialized', 400, null);
     }
@@ -326,7 +344,13 @@ export class AgentMemory {
       }
     };
     
-    return this.vectorDb.addDocument(document, this.config.namespace);
+    const embedding = await this.embeddingGenerator.generateEmbedding(content);
+    
+    await this.vectorDb.addDocument({
+      collectionName: this.config.namespace || 'default',
+      document,
+      embedding
+    });
   }
 
   /**

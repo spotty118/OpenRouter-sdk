@@ -20,11 +20,11 @@ import { OpenRouterConfig,
   VectorDocument,
   VectorSearchOptions,
   VectorSearchResult,
-  VectorDBConfig,
-  IVectorDB,
+  VectorDB,
   FunctionDefinition,
   ToolCall,
   ToolDefinition } from '../interfaces/index.js';
+import { ExtendedVectorDBConfig } from '../utils/vector-db.js';
 
 import { OpenRouter } from './open-router.js';
 import { FunctionCalling } from '../utils/function-calling.js';
@@ -42,7 +42,7 @@ export class AIOrchestrator {
   private taskRegistry: Map<string, Task> = new Map();
   private workflowRegistry: Map<string, Workflow> = new Map();
   private crewRegistry: Map<string, CrewConfig> = new Map();
-  private vectorDbRegistry: Map<string, IVectorDB> = new Map();
+  private vectorDbRegistry: Map<string, VectorDB> = new Map();
 
   /**
    * Create a new AI Orchestrator instance
@@ -72,30 +72,6 @@ export class AIOrchestrator {
    * @param required - Required parameters
    * @param implementation - Function implementation
    * @returns The function definition
-   * 
-   * @example
-   * ```typescript
-   * const weatherFunction = orchestrator.registerFunction(
-   *   'get_weather',
-   *   'Get current weather for a location',
-   *   {
-   *     location: {
-   *       type: 'string',
-   *       description: 'City name'
-   *     },
-   *     units: {
-   *       type: 'string',
-   *       enum: ['celsius', 'fahrenheit'],
-   *       default: 'celsius'
-   *     }
-   *   },
-   *   ['location'],
-   *   async (args) => {
-   *     // Implementation to fetch weather data
-   *     return { temperature: 22, conditions: 'sunny' };
-   *   }
-   * );
-   * ```
    */
   registerFunction(
     name: string,
@@ -122,23 +98,6 @@ export class AIOrchestrator {
    * 
    * @param toolCalls - Tool calls from the model
    * @returns Results of executed functions
-   * 
-   * @example
-   * ```typescript
-   * // After getting a response with tool calls
-   * const response = await orchestrator.chat({
-   *   messages: [{ role: 'user', content: 'What\'s the weather in Paris?' }],
-   *   tools: [weatherFunction],
-   *   model: 'openai/gpt-4o'
-   * });
-   * 
-   * if (response.choices[0].message.tool_calls) {
-   *   const results = await orchestrator.executeToolCalls(
-   *     response.choices[0].message.tool_calls
-   *   );
-   *   console.log('Tool results:', results);
-   * }
-   * ```
    */
   async executeToolCalls(toolCalls: ToolCall[]): Promise<Record<string, any>> {
     const functionMap: Record<string, (...args: any[]) => any> = {};
@@ -156,18 +115,6 @@ export class AIOrchestrator {
    * 
    * @param options - Chat completion options
    * @returns The completion response
-   * 
-   * @example
-   * ```typescript
-   * const response = await orchestrator.chat({
-   *   messages: [
-   *     { role: 'system', content: 'You are a helpful assistant.' },
-   *     { role: 'user', content: 'What\'s the weather in New York?' }
-   *   ],
-   *   tools: [weatherFunction],
-   *   model: 'anthropic/claude-3-opus'
-   * });
-   * ```
    */
   async chat(options: Partial<CompletionRequest> & { messages: ChatMessage[] }) {
     // Convert registered functions to tools if needed
@@ -198,18 +145,6 @@ export class AIOrchestrator {
    * 
    * @param agentConfig - Agent configuration
    * @returns The created agent
-   * 
-   * @example
-   * ```typescript
-   * const researchAgent = orchestrator.createAgent({
-   *   id: 'researcher',
-   *   name: 'Research Specialist',
-   *   description: 'Expert at finding and analyzing information',
-   *   model: 'anthropic/claude-3-opus',
-   *   systemMessage: 'You are a research specialist who excels at finding accurate information.',
-   *   temperature: 0.2
-   * });
-   * ```
    */
   createAgent(agentConfig: Partial<Agent>): ExtendedAgentConfig {
     const agent = this.openRouter.createAgent(agentConfig);
@@ -222,17 +157,6 @@ export class AIOrchestrator {
    * 
    * @param taskConfig - Task configuration
    * @returns The created task
-   * 
-   * @example
-   * ```typescript
-   * const researchTask = orchestrator.createTask({
-   *   id: 'market-research',
-   *   name: 'Market Research',
-   *   description: 'Research the current market trends for electric vehicles',
-   *   assignedAgentId: 'researcher',
-   *   expectedOutput: 'A comprehensive report on EV market trends with key statistics'
-   * });
-   * ```
    */
   createTask(taskConfig: Task): Task {
     const task = this.openRouter.createTask(taskConfig);
@@ -245,18 +169,6 @@ export class AIOrchestrator {
    * 
    * @param workflowConfig - Workflow configuration
    * @returns The created workflow
-   * 
-   * @example
-   * ```typescript
-   * const researchWorkflow = orchestrator.createWorkflow({
-   *   id: 'research-workflow',
-   *   name: 'Research and Summarize',
-   *   tasks: [researchTask, summaryTask],
-   *   dependencies: {
-   *     'summary-task': ['research-task']
-   *   }
-   * });
-   * ```
    */
   createWorkflow(workflowConfig: Workflow): Workflow {
     const workflow = this.openRouter.createWorkflow(workflowConfig);
@@ -269,16 +181,6 @@ export class AIOrchestrator {
    * 
    * @param crewConfig - Crew configuration
    * @returns The created crew
-   * 
-   * @example
-   * ```typescript
-   * const researchCrew = orchestrator.createCrew({
-   *   id: 'research-team',
-   *   name: 'Research Team',
-   *   description: 'A team that researches and summarizes information',
-   *   agents: [researchAgent, writerAgent]
-   * });
-   * ```
    */
   createCrew(crewConfig: CrewConfig): CrewConfig {
     const crew = this.openRouter.createCrew(crewConfig);
@@ -294,15 +196,6 @@ export class AIOrchestrator {
    * @param config - Optional execution configuration
    * @param callbacks - Optional callbacks for task lifecycle events
    * @returns Promise resolving to the task result
-   * 
-   * @example
-   * ```typescript
-   * const result = await orchestrator.executeTask(
-   *   'market-research',
-   *   'researcher',
-   *   { maxIterations: 3 }
-   * );
-   * ```
    */
   async executeTask(
     taskId: string | Task,
@@ -344,11 +237,6 @@ export class AIOrchestrator {
    * @param config - Optional execution configuration
    * @param callbacks - Optional callbacks for task lifecycle events
    * @returns Promise resolving to the workflow results
-   * 
-   * @example
-   * ```typescript
-   * const results = await orchestrator.executeWorkflow('research-workflow');
-   * ```
    */
   async executeWorkflow(
     workflowId: string | Workflow,
@@ -389,14 +277,6 @@ export class AIOrchestrator {
    * @param config - Optional execution configuration
    * @param callbacks - Optional callbacks for task lifecycle events
    * @returns Promise resolving to the crew run status
-   * 
-   * @example
-   * ```typescript
-   * const runStatus = await orchestrator.runCrew(
-   *   'research-team',
-   *   ['market-research', 'data-analysis', 'report-writing']
-   * );
-   * ```
    */
   async runCrew(
     crewId: string | CrewConfig,
@@ -439,22 +319,8 @@ export class AIOrchestrator {
    * @param id - Unique identifier for the vector database
    * @param config - Vector database configuration
    * @returns The created vector database
-   * 
-   * @example
-   * ```typescript
-   * const vectorDb = orchestrator.createVectorDb(
-   *   'research-knowledge',
-   *   {
-   *     dimensions: 1536,
-   *     maxVectors: 10000,
-   *     similarityMetric: 'cosine',
-   *     persistToDisk: true,
-   *     storagePath: './data/research-db'
-   *   }
-   * );
-   * ```
    */
-  createVectorDb(id: string, config: VectorDBConfig): IVectorDB {
+  createVectorDb(id: string, config: ExtendedVectorDBConfig): VectorDB {
     const vectorDb = this.openRouter.createVectorDb(config);
     this.vectorDbRegistry.set(id, vectorDb);
     return vectorDb;
@@ -466,7 +332,7 @@ export class AIOrchestrator {
    * @param id - Vector database ID
    * @returns The vector database or undefined if not found
    */
-  getVectorDb(id: string): IVectorDB | undefined {
+  getVectorDb(id: string): VectorDB | undefined {
     return this.vectorDbRegistry.get(id);
   }
 
@@ -477,18 +343,6 @@ export class AIOrchestrator {
    * @param document - The document to add
    * @param namespace - Optional namespace/collection to add the document to
    * @returns Promise resolving to the document ID
-   * 
-   * @example
-   * ```typescript
-   * const docId = await orchestrator.addDocument(
-   *   'research-knowledge',
-   *   {
-   *     id: 'doc1',
-   *     content: 'Electric vehicles are becoming increasingly popular...',
-   *     metadata: { source: 'research-report', topic: 'electric-vehicles' }
-   *   }
-   * );
-   * ```
    */
   async addDocument(
     dbId: string,
@@ -500,7 +354,12 @@ export class AIOrchestrator {
       throw new OpenRouterError(`Vector database not found: ${dbId}`, 400, null);
     }
     
-    return vectorDb.addDocument(document, namespace);
+    await vectorDb.addDocument({
+      collectionName: namespace || 'default',
+      document,
+      embedding: [] // This should be generated by the vector database implementation
+    });
+    return document.id;
   }
 
   /**
@@ -510,25 +369,6 @@ export class AIOrchestrator {
    * @param documents - Array of documents to add
    * @param namespace - Optional namespace/collection to add the documents to
    * @returns Promise resolving to an array of document IDs
-   * 
-   * @example
-   * ```typescript
-   * const docIds = await orchestrator.addDocuments(
-   *   'research-knowledge',
-   *   [
-   *     {
-   *       id: 'doc1',
-   *       content: 'Electric vehicles are becoming increasingly popular...',
-   *       metadata: { source: 'research-report', topic: 'electric-vehicles' }
-   *     },
-   *     {
-   *       id: 'doc2',
-   *       content: 'The global market for electric vehicles is expected to grow...',
-   *       metadata: { source: 'market-analysis', topic: 'electric-vehicles' }
-   *     }
-   *   ]
-   * );
-   * ```
    */
   async addDocuments(
     dbId: string,
@@ -540,7 +380,17 @@ export class AIOrchestrator {
       throw new OpenRouterError(`Vector database not found: ${dbId}`, 400, null);
     }
     
-    return vectorDb.addDocuments(documents, namespace);
+    const ids: string[] = [];
+    for (const document of documents) {
+      await vectorDb.addDocument({
+        collectionName: namespace || 'default',
+        document,
+        embedding: [] // This should be generated by the vector database implementation
+      });
+      const id = document.id;
+      ids.push(id);
+    }
+    return ids;
   }
 
   /**
@@ -550,15 +400,6 @@ export class AIOrchestrator {
    * @param text - The text to search for
    * @param options - Search options
    * @returns Promise resolving to an array of search results
-   * 
-   * @example
-   * ```typescript
-   * const results = await orchestrator.searchByText(
-   *   'research-knowledge',
-   *   'electric vehicle market trends',
-   *   { limit: 5, minScore: 0.7 }
-   * );
-   * ```
    */
   async searchByText(
     dbId: string,
@@ -570,7 +411,11 @@ export class AIOrchestrator {
       throw new OpenRouterError(`Vector database not found: ${dbId}`, 400, null);
     }
     
-    return vectorDb.searchByText(text, options);
+    return vectorDb.search({
+      collectionName: options?.collectionName || 'default',
+      query: text,
+      ...options
+    });
   }
 
   /**
@@ -580,18 +425,6 @@ export class AIOrchestrator {
    * @param document - The document to add
    * @param namespace - Optional namespace/collection to add the document to
    * @returns Promise resolving to the document ID
-   * 
-   * @example
-   * ```typescript
-   * const docId = await orchestrator.addAgentKnowledge(
-   *   'researcher',
-   *   {
-   *     id: 'doc1',
-   *     content: 'Electric vehicles are becoming increasingly popular...',
-   *     metadata: { source: 'research-report', topic: 'electric-vehicles' }
-   *   }
-   * );
-   * ```
    */
   async addAgentKnowledge(
     agentId: string,
@@ -608,25 +441,6 @@ export class AIOrchestrator {
    * @param documents - Array of documents to add
    * @param namespace - Optional namespace/collection to add the documents to
    * @returns Promise resolving to an array of document IDs
-   * 
-   * @example
-   * ```typescript
-   * const docIds = await orchestrator.addAgentKnowledgeBatch(
-   *   'researcher',
-   *   [
-   *     {
-   *       id: 'doc1',
-   *       content: 'Electric vehicles are becoming increasingly popular...',
-   *       metadata: { source: 'research-report', topic: 'electric-vehicles' }
-   *     },
-   *     {
-   *       id: 'doc2',
-   *       content: 'The global market for electric vehicles is expected to grow...',
-   *       metadata: { source: 'market-analysis', topic: 'electric-vehicles' }
-   *     }
-   *   ]
-   * );
-   * ```
    */
   async addAgentKnowledgeBatch(
     agentId: string,
@@ -643,15 +457,6 @@ export class AIOrchestrator {
    * @param text - The text to search for
    * @param options - Search options
    * @returns Promise resolving to an array of search results
-   * 
-   * @example
-   * ```typescript
-   * const results = await orchestrator.searchAgentKnowledge(
-   *   'researcher',
-   *   'electric vehicle market trends',
-   *   { limit: 5, minScore: 0.7 }
-   * );
-   * ```
    */
   async searchAgentKnowledge(
     agentId: string,
@@ -666,31 +471,6 @@ export class AIOrchestrator {
    * 
    * @param config - Configuration for the multi-agent system
    * @returns The created multi-agent system
-   * 
-   * @example
-   * ```typescript
-   * // Example of creating a multi-agent system
-   * const mas = await orchestrator.createMultiAgentSystem({
-   *   name: 'Research System',
-   *   agents: [
-   *     {
-   *       id: 'researcher',
-   *       name: 'Research Agent',
-   *       description: 'Finds information',
-   *       model: 'anthropic/claude-3-opus'
-   *     }
-   *   ],
-   *   functions: [
-   *     {
-   *       name: 'search_web',
-   *       description: 'Search the web',
-   *       parameters: { query: { type: 'string' } },
-   *       implementation: async (args) => ({ results: ['result1'] })
-   *     }
-   *   ]
-   * });
-   * });
-   * ```
    */
   async createMultiAgentSystem(config: {
     name: string;
@@ -704,20 +484,20 @@ export class AIOrchestrator {
     }[];
     knowledgeBases?: {
       id: string;
-      config: VectorDBConfig;
+      config: ExtendedVectorDBConfig;
       documents?: VectorDocument[];
     }[];
   }): Promise<{
     name: string;
     agents: ExtendedAgentConfig[];
     functions: FunctionDefinition[];
-    vectorDbs: Map<string, IVectorDB>;
+    vectorDbs: Map<string, VectorDB>;
   }> {
     const result = {
       name: config.name,
       agents: [] as ExtendedAgentConfig[],
       functions: [] as FunctionDefinition[],
-      vectorDbs: new Map<string, IVectorDB>()
+      vectorDbs: new Map<string, VectorDB>()
     };
     
     // Create agents

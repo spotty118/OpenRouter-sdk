@@ -3,6 +3,49 @@
  */
 
 /**
+ * Vector database configuration
+ */
+export interface VectorDBConfig {
+  /**
+   * Vector dimension size
+   */
+  dimensions: number;
+  
+  /**
+   * Database type
+   */
+  type: VectorDBType;
+  
+  /**
+   * Vector similarity metric
+   */
+  similarityMetric?: string;
+  
+  /**
+   * Additional configuration options
+   */
+  [key: string]: any | number | string | undefined | VectorDBType;
+}
+
+/**
+ * Extended vector database configuration
+ */
+export interface ExtendedVectorDBConfig extends VectorDBConfig {
+  /**
+   * Database-specific configuration
+   */
+  [key: string]: any | number | string | undefined;
+}
+
+/**
+ * Vector database types
+ */
+export enum VectorDBType {
+  CHROMA = 'chroma',
+  DEFAULT = 'default'
+}
+
+/**
  * Base document interface for vector database storage
  */
 export interface VectorDocument {
@@ -20,6 +63,11 @@ export interface VectorDocument {
    * Metadata associated with the document
    */
   metadata: Record<string, any>;
+
+  /**
+   * Vector embedding for semantic search
+   */
+  embedding?: number[];
 }
 
 /**
@@ -62,9 +110,9 @@ export interface VectorDocumentOptions {
  */
 export interface VectorSearchOptions {
   /**
-   * Collection name to search in
+   * Collection name to search in (optional if namespace is provided)
    */
-  collectionName: string;
+  collectionName?: string;
   
   /**
    * Query string or vector depending on search type
@@ -73,14 +121,29 @@ export interface VectorSearchOptions {
   vector?: number[];
   
   /**
-   * Optional filter query
+   * Optional filter function
    */
-  filter?: string;
+  filter?: (metadata: Record<string, any>) => boolean;
   
   /**
    * Maximum results to return
    */
   limit?: number;
+
+  /**
+   * Minimum similarity score threshold (0-1)
+   */
+  minScore?: number;
+
+  /**
+   * Whether to include vector embeddings in results
+   */
+  includeVectors?: boolean;
+
+  /**
+   * Optional namespace
+   */
+  namespace?: string;
 }
 
 /**
@@ -120,7 +183,12 @@ export interface VectorDB {
   /**
    * Add a document to the database
    */
-  addDocument(options: VectorDocumentOptions): Promise<void>;
+  addDocument(options: VectorDocumentOptions): Promise<string>;
+  
+  /**
+   * Add multiple documents to the database
+   */
+  addDocuments(documents: VectorDocument[], namespace?: string): Promise<string[]>;
   
   /**
    * Update a document in the database
@@ -130,12 +198,17 @@ export interface VectorDB {
   /**
    * Delete a document from the database
    */
-  deleteDocument(options: VectorDeleteOptions): Promise<void>;
+  deleteDocument(id: string, namespace?: string): Promise<boolean>;
   
   /**
    * Search for documents by text query or vector embedding
    */
   search(options: VectorSearchOptions): Promise<VectorSearchResult[]>;
+  
+  /**
+   * Search for documents by text query
+   */
+  searchByText(query: string, options?: VectorSearchOptions): Promise<VectorSearchResult[]>;
   
   /**
    * Search for documents by vector embedding
@@ -151,4 +224,35 @@ export interface VectorDB {
    * Delete an entire collection
    */
   deleteCollection(collectionName: string): Promise<void>;
+
+  /**
+   * Get a document by ID
+   */
+  getDocument(id: string, namespace?: string): Promise<VectorDocument | null>;
+
+  /**
+   * List all available namespaces
+   */
+  listNamespaces(): Promise<string[]>;
+}
+
+/**
+ * Chroma vector database configuration
+ */
+export interface ChromaVectorDBConfig extends VectorDBConfig {
+
+  /**
+   * Chroma server URL
+   */
+  chromaUrl?: string;
+
+  /**
+   * Collection prefix
+   */
+  collectionPrefix?: string;
+
+  /**
+   * Use in-memory storage
+   */
+  useInMemory?: boolean;
 }

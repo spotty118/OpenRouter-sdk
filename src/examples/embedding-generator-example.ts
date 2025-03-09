@@ -4,7 +4,8 @@
 
 import { OpenRouter } from '../core/open-router.js';
 import { EmbeddingGenerator } from '../utils/embedding-generator.js';
-import { VectorDBType, ExtendedVectorDBConfig, VectorDocument } from '../interfaces/vector-db.js';
+import { VectorDBType, VectorDocument, VectorSearchResult, VectorSearchOptions } from '../interfaces/vector-db.js';
+import { ExtendedVectorDBConfig } from '../utils/vector-db.js';
 
 /**
  * This example demonstrates how to use the EmbeddingGenerator with ChromaDB
@@ -29,16 +30,17 @@ async function main() {
 
   // Create a Chroma vector database
   console.log('Creating Chroma vector database...');
-  const vectorDb = openRouter.createVectorDb<ExtendedVectorDBConfig>({
+  const vectorDb = openRouter.createVectorDb({
     dimensions: 1536,
     similarityMetric: 'cosine',
-    type: VectorDBType.Chroma,
-    chroma: {
-      chromaUrl: 'http://localhost:8000',
-      collectionPrefix: 'embedding-example-',
-      useInMemory: true
-    }
-  });
+    type: VectorDBType.CHROMA,
+    chromaUrl: 'http://localhost:8000',
+    collectionPrefix: 'embedding-example-',
+    useInMemory: true
+  } as unknown as ExtendedVectorDBConfig);
+
+  // Define default namespace for operations
+  const defaultNamespace = 'default';
 
   // Sample texts to generate embeddings for
   const texts = [
@@ -57,7 +59,7 @@ async function main() {
   console.log(`Generated ${embeddings.length} embeddings, each with ${embeddings[0].length} dimensions`);
 
   // Create documents with the generated embeddings
-  const documents: VectorDocument[] = texts.map((text, index) => ({
+  const documents = texts.map((text, index) => ({
     id: `doc-${index + 1}`,
     content: text,
     metadata: { source: 'embedding-example', topic: 'electric-vehicles' },
@@ -66,7 +68,7 @@ async function main() {
 
   // Add documents to the vector database
   console.log('Adding documents with pre-computed embeddings to vector database...');
-  const docIds = await vectorDb.addDocuments(documents);
+  const docIds = await vectorDb.addDocuments(documents, defaultNamespace);
   console.log(`Added documents with IDs: ${docIds.join(', ')}`);
 
   // Generate an embedding for a query
@@ -77,18 +79,25 @@ async function main() {
   
   // Search using the query embedding
   console.log('Searching with the query embedding...');
-  const searchResults = await vectorDb.searchByVector(queryEmbedding, { limit: 2 });
+  const searchResults = await vectorDb.searchByVector({
+    vector: queryEmbedding,
+    limit: 2,
+    namespace: defaultNamespace
+  } as VectorSearchOptions);
   
-  searchResults.forEach((result, i) => {
+  searchResults.forEach((result: VectorSearchResult, i: number) => {
     console.log(`\nResult ${i + 1} (Score: ${result.score.toFixed(4)}):`);
     console.log(`Content: ${result.document.content}`);
   });
 
   // Compare with text-based search
   console.log('\nComparing with text-based search...');
-  const textSearchResults = await vectorDb.searchByText(queryText, { limit: 2 });
+  const textSearchResults = await vectorDb.searchByText(queryText, {
+    limit: 2,
+    namespace: defaultNamespace
+  } as VectorSearchOptions);
   
-  textSearchResults.forEach((result, i) => {
+  textSearchResults.forEach((result: VectorSearchResult, i: number) => {
     console.log(`\nResult ${i + 1} (Score: ${result.score.toFixed(4)}):`);
     console.log(`Content: ${result.document.content}`);
   });
@@ -109,7 +118,11 @@ async function main() {
   // Search with each batch embedding
   for (let i = 0; i < batchQueries.length; i++) {
     console.log(`\nQuery: "${batchQueries[i]}"`);
-    const results = await vectorDb.searchByVector(batchEmbeddings[i], { limit: 1 });
+    const results = await vectorDb.searchByVector({
+      vector: batchEmbeddings[i],
+      limit: 1,
+      namespace: defaultNamespace
+    } as VectorSearchOptions);
     
     if (results.length > 0) {
       console.log(`Top result (Score: ${results[0].score.toFixed(4)}):`);
@@ -122,5 +135,9 @@ async function main() {
 
 // Run the example
 main().catch(error => {
-  console.error('Error in embedding generator example:', error);
+  console.error('Error in embedding generator example:', error instanceof Error ? error.message : 'Unknown error');
+  if (error instanceof Error && error.stack) {
+    console.error('Stack trace:', error.stack);
+  }
+  process.exit(1);
 });
