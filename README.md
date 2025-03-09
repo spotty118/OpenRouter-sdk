@@ -209,7 +209,102 @@ For detailed documentation on all API endpoints, see [API_README.md](API_README.
 
 ## Examples
 
-See the `src/examples` directory for more detailed examples.
+This SDK includes several example implementations to help you get started:
+
+### Enhanced CrewAI and Tool Calling
+
+The SDK provides advanced agent orchestration with streamlined activation:
+
+```typescript
+import { 
+  AIOrchestrator, 
+  quickSetupExample, 
+  smartOrchestrationExample 
+} from 'openrouter-sdk';
+
+// One-line setup for complete agent systems
+await quickSetupExample();
+
+// Smart agent orchestration with adaptive processing
+await smartOrchestrationExample();
+
+// Create a multi-agent system in one operation
+const system = await orchestrator.createMultiAgentSystem({
+  name: 'Research System',
+  agents: [
+    { id: 'researcher', name: 'Research Agent', model: 'anthropic/claude-3-opus' },
+    { id: 'writer', name: 'Content Writer', model: 'openai/gpt-4o' }
+  ],
+  functions: [
+    {
+      name: 'search_web',
+      description: 'Search the web',
+      parameters: { query: { type: 'string' } },
+      implementation: async (args) => ({ results: ['result1'] })
+    }
+  ],
+  knowledgeBases: [
+    {
+      id: 'knowledge',
+      config: { dimensions: 1536 }
+    }
+  ]
+});
+```
+
+### Advanced Agent Memory System
+
+The SDK includes a sophisticated memory system for AI agents that provides both short-term context management and long-term knowledge retention:
+
+```typescript
+import { AgentMemory, MemoryType } from 'openrouter-sdk';
+
+// Create an agent with advanced memory capabilities
+const agentMemory = new AgentMemory('research-agent', {
+  // Hybrid memory combines short-term and long-term storage
+  memoryType: MemoryType.Hybrid,
+  
+  // Configure memory retention and retrieval
+  retention: {
+    messageLimit: 15,
+    useCompression: true,
+    removalStrategy: 'summarize',
+    relevanceThreshold: 0.65
+  },
+  
+  // Vector database for long-term storage
+  vectorDb: {
+    type: 'in-memory',
+    dimensions: 1536,
+    persistToDisk: true
+  },
+  
+  // Enable automatic memory features
+  autoIndex: true,     // Auto-index all conversations
+  autoPrune: true      // Auto-prune redundant memories
+});
+
+// Store knowledge in the agent's memory
+await agentMemory.storeMemory(
+  'Important fact to remember later',
+  'knowledge',
+  { source: 'research' }
+);
+
+// Add conversation messages to memory
+await agentMemory.addMessage({ 
+  role: 'user', 
+  content: 'What do you know about AI?' 
+});
+
+// Retrieve relevant memories based on context
+const memories = await agentMemory.retrieveRelevantMemories('AI research trends');
+
+// Generate enhanced context with relevant memories automatically included
+const enhancedContext = await agentMemory.generateEnhancedContext('Current query');
+```
+
+For more detailed examples, explore the `src/examples` directory.
 
 ## License
 
