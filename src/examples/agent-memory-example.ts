@@ -8,7 +8,7 @@
 
 import { AIOrchestrator } from '../core/ai-orchestrator.js';
 import { AgentMemory, MemoryType } from '../utils/agent-memory.js';
-import { VectorDBType } from '../utils/vector-db.js';
+import { VectorDBType } from '../interfaces/index.js';
 import { ChatMessage } from '../interfaces/index.js';
 
 /**
@@ -35,7 +35,7 @@ async function runAgentMemoryExample() {
       maxRecallItems: 7
     },
     vectorDb: {
-      type: VectorDBType.InMemory,
+      type: VectorDBType.IN_MEMORY,
       dimensions: 1536,
       persistToDisk: true,
       storagePath: './data/agent-memories'

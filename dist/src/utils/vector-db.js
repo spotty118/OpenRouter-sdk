@@ -1,20 +1,13 @@
 /**
  * Vector database implementation for knowledge storage and retrieval
  */
+import { VectorDBType } from '../interfaces/index.js';
 import { Logger } from './logger.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { ChromaVectorDB } from './chroma-vector-db.js';
-/**
- * Vector database type
- */
-export var VectorDBType;
-(function (VectorDBType) {
-    /** In-memory vector database with optional persistence */
-    VectorDBType["InMemory"] = "in-memory";
-    /** Chroma vector database */
-    VectorDBType["Chroma"] = "chroma";
-})(VectorDBType || (VectorDBType = {}));
+// Re-export VectorDBType for use in other modules
+export { VectorDBType } from '../interfaces/index.js';
 /**
  * Create a vector database instance
  *
@@ -22,14 +15,18 @@ export var VectorDBType;
  * @returns A vector database instance
  */
 export function createVectorDB(config) {
-    const type = config.type || VectorDBType.InMemory;
+    const type = config.type;
     switch (type) {
-        case VectorDBType.Chroma:
-            return new ChromaVectorDB({
-                ...config,
-                ...config.chroma
-            });
-        case VectorDBType.InMemory:
+        case VectorDBType.CHROMA:
+            {
+                // Create a basic config for ChromaVectorDB
+                return new ChromaVectorDB({
+                    host: 'localhost',
+                    port: 8000,
+                    logLevel: 'info'
+                });
+            }
+        case VectorDBType.IN_MEMORY:
         default:
             return new VectorDB(config);
     }
@@ -50,13 +47,15 @@ export class VectorDB {
         this.documents = new Map();
         this.vectors = new Map();
         this.defaultNamespace = 'default';
-        this.config = {
+        const fullConfig = {
             dimensions: config.dimensions,
             maxVectors: config.maxVectors || 10000,
             similarityMetric: config.similarityMetric || 'cosine',
+            type: config.type,
             persistToDisk: config.persistToDisk || false,
             storagePath: config.storagePath || './.vectordb'
         };
+        this.config = fullConfig;
         this.logger = new Logger('info');
         // Initialize default namespace
         this.documents.set(this.defaultNamespace, new Map());
@@ -71,11 +70,12 @@ export class VectorDB {
     /**
      * Add a document to the vector database
      *
-     * @param document - The document to add
-     * @param namespace - Optional namespace/collection to add the document to
+     * @param options - Document options
      * @returns Promise resolving to the document ID
      */
-    async addDocument(document, namespace = this.defaultNamespace) {
+    async addDocument(options) {
+        const document = options.document;
+        const namespace = options.collectionName || this.defaultNamespace;
         // Create namespace if it doesn't exist
         if (!this.documents.has(namespace)) {
             this.documents.set(namespace, new Map());
@@ -98,6 +98,12 @@ export class VectorDB {
                     throw new Error(`Vector dimensions mismatch: expected ${this.config.dimensions}, got ${document.embedding.length}`);
                 }
                 vectorsMap.set(document.id, [...document.embedding]);
+            }
+            else if (options.embedding && options.embedding.length > 0) {
+                if (options.embedding.length !== this.config.dimensions) {
+                    throw new Error(`Vector dimensions mismatch: expected ${this.config.dimensions}, got ${options.embedding.length}`);
+                }
+                vectorsMap.set(document.id, [...options.embedding]);
             }
             else {
                 // In a real implementation, we would generate embeddings here
@@ -131,7 +137,12 @@ export class VectorDB {
     async addDocuments(documents, namespace = this.defaultNamespace) {
         const ids = [];
         for (const document of documents) {
-            const id = await this.addDocument(document, namespace);
+            const options = {
+                collectionName: namespace,
+                document,
+                embedding: document.embedding || []
+            };
+            const id = await this.addDocument(options);
             ids.push(id);
         }
         return ids;
@@ -139,27 +150,46 @@ export class VectorDB {
     /**
      * Search for similar documents using text query
      *
-     * @param text - The text to search for
+     * @param query - The text to search for
      * @param options - Search options
      * @returns Promise resolving to an array of search results
      */
-    async searchByText(text, options = {}) {
+    async searchByText(query, options = {}) {
         // In a real implementation, we would generate an embedding for the text
         // and then search by vector. For now, we'll just create a random vector.
         const vector = this.createRandomVector();
-        return this.searchByVector(vector, options);
+        const searchOptions = {
+            ...options,
+            vector
+        };
+        return this.searchByVector(searchOptions);
     }
     /**
      * Search for similar documents using a vector
      *
-     * @param vector - The embedding vector to search with
+     * @param options - Search options with vector
+     * @returns Promise resolving to an array of search results
+     */
+    async searchByVector(options) {
+        if (!options.vector) {
+            throw new Error('Vector is required for searchByVector');
+        }
+        return this.search(options);
+    }
+    /**
+     * Search for documents
+     *
      * @param options - Search options
      * @returns Promise resolving to an array of search results
      */
-    async searchByVector(vector, options = {}) {
-        const namespace = options.namespace || this.defaultNamespace;
+    async search(options) {
+        const namespace = options.namespace || options.collectionName || this.defaultNamespace;
         const limit = options.limit || 10;
         const minScore = options.minScore || 0;
+        const vector = options.vector;
+        if (!vector) {
+            throw new Error('Vector is required for search');
+        }
         if (!this.vectors.has(namespace)) {
             return [];
         }
@@ -224,42 +254,44 @@ export class VectorDB {
     /**
      * Update an existing document
      *
-     * @param id - The document ID
-     * @param document - The updated document data
-     * @param namespace - Optional namespace/collection
-     * @returns Promise resolving to a boolean indicating success
+     * @param options - Document options
+     * @returns Promise resolving when update is complete
      */
-    async updateDocument(id, document, namespace = this.defaultNamespace) {
+    async updateDocument(options) {
+        const document = options.document;
+        const namespace = options.collectionName || this.defaultNamespace;
         if (!this.documents.has(namespace)) {
-            return false;
+            throw new Error(`Namespace ${namespace} does not exist`);
         }
         const documentsMap = this.documents.get(namespace);
         const vectorsMap = this.vectors.get(namespace);
         if (!documentsMap || !vectorsMap) {
-            return false;
+            throw new Error(`Namespace ${namespace} is not properly initialized`);
         }
-        if (!documentsMap.has(id)) {
-            return false;
+        if (!document.id || !documentsMap.has(document.id)) {
+            throw new Error(`Document with ID ${document.id} does not exist in namespace ${namespace}`);
         }
-        const existingDoc = documentsMap.get(id);
+        const existingDoc = documentsMap.get(document.id);
         if (!existingDoc) {
-            return false;
+            throw new Error(`Document with ID ${document.id} does not exist in namespace ${namespace}`);
         }
         const updatedDoc = { ...existingDoc, ...document };
         // Update document
-        documentsMap.set(id, updatedDoc);
+        documentsMap.set(document.id, updatedDoc);
         // Update vector if provided
-        if (document.embedding) {
-            if (document.embedding.length !== this.config.dimensions) {
-                throw new Error(`Vector dimensions mismatch: expected ${this.config.dimensions}, got ${document.embedding.length}`);
+        const embedding = options.embedding && options.embedding.length > 0
+            ? options.embedding
+            : document.embedding;
+        if (embedding) {
+            if (embedding.length !== this.config.dimensions) {
+                throw new Error(`Vector dimensions mismatch: expected ${this.config.dimensions}, got ${embedding.length}`);
             }
-            vectorsMap.set(id, [...document.embedding]);
+            vectorsMap.set(document.id, [...embedding]);
         }
         // Save to disk if persistence is enabled
         if (this.config.persistToDisk) {
             await this.save();
         }
-        return true;
     }
     /**
      * Delete a document by its ID
@@ -290,28 +322,38 @@ export class VectorDB {
         return true;
     }
     /**
-     * Delete all documents in a namespace
+     * Delete all documents in a namespace/collection
      *
-     * @param namespace - The namespace to clear
-     * @returns Promise resolving to the number of documents deleted
+     * @param collectionName - The collection name to clear
+     * @returns Promise resolving when deletion is complete
      */
-    async deleteNamespace(namespace) {
-        if (!this.documents.has(namespace)) {
-            return 0;
+    async deleteCollection(collectionName) {
+        if (!this.documents.has(collectionName)) {
+            return;
         }
-        const documentsMap = this.documents.get(namespace);
-        if (!documentsMap) {
-            return 0;
-        }
-        const count = documentsMap.size;
         // Delete namespace
-        this.documents.delete(namespace);
-        this.vectors.delete(namespace);
+        this.documents.delete(collectionName);
+        this.vectors.delete(collectionName);
         // Save to disk if persistence is enabled
         if (this.config.persistToDisk) {
             await this.save();
         }
-        return count;
+    }
+    /**
+     * Get document count in a collection
+     *
+     * @param collectionName - The collection name
+     * @returns Promise resolving to the number of documents
+     */
+    async count(collectionName) {
+        if (!this.documents.has(collectionName)) {
+            return 0;
+        }
+        const documentsMap = this.documents.get(collectionName);
+        if (!documentsMap) {
+            return 0;
+        }
+        return documentsMap.size;
     }
     /**
      * Get all available namespaces

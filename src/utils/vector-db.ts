@@ -2,33 +2,30 @@
  * Vector database implementation for knowledge storage and retrieval
  */
 
-import { IVectorDB, 
+import { VectorDB as IVectorDB, 
   VectorDBConfig, 
   VectorDocument, 
-  VectorSearchOptions, 
+  VectorSearchOptions,
+  VectorDBType, 
+  VectorDocumentOptions,
+  VectorDeleteOptions,
+  ChromaVectorDBConfig,
   VectorSearchResult } from '../interfaces/index.js';
 import { Logger } from './logger.js';
 import * as fs from 'fs';
 import * as path from 'path';
-import { ChromaVectorDB, ChromaVectorDBConfig } from './chroma-vector-db.js';
+import { ChromaVectorDB } from './chroma-vector-db.js';
 
-/**
- * Vector database type
- */
-export enum VectorDBType {
-  /** In-memory vector database with optional persistence */
-  InMemory = 'in-memory',
-  /** Chroma vector database */
-  Chroma = 'chroma'
-}
+// Re-export VectorDBType for use in other modules
+export { VectorDBType } from '../interfaces/index.js';
 
 /**
  * Extended vector database configuration with type
  */
 export interface ExtendedVectorDBConfig extends VectorDBConfig {
-  /** Type of vector database to use */
-  type?: VectorDBType;
-  /** Chroma-specific configuration (only used if type is Chroma) */
+  /** Type of vector database to use (overrides the one from VectorDBConfig) */
+  type: VectorDBType;
+  /** Chroma-specific configuration (only used if type is CHROMA) */
   chroma?: Omit<ChromaVectorDBConfig, keyof VectorDBConfig>;
 }
 
@@ -39,15 +36,19 @@ export interface ExtendedVectorDBConfig extends VectorDBConfig {
  * @returns A vector database instance
  */
 export function createVectorDB(config: ExtendedVectorDBConfig): IVectorDB {
-  const type = config.type || VectorDBType.InMemory;
+  const type = config.type;
   
   switch (type) {
-    case VectorDBType.Chroma:
+    case VectorDBType.CHROMA:
+    {
+      // Create a basic config for ChromaVectorDB
       return new ChromaVectorDB({
-        ...config,
-        ...config.chroma
+        host: 'localhost',
+        port: 8000,
+        logLevel: 'info'
       });
-    case VectorDBType.InMemory:
+    }
+    case VectorDBType.IN_MEMORY: 
     default:
       return new VectorDB(config);
   }
@@ -72,13 +73,16 @@ export class VectorDB implements IVectorDB {
    * @param config - Configuration options
    */
   constructor(config: VectorDBConfig) {
-    this.config = {
+    const fullConfig: Required<VectorDBConfig> = {
       dimensions: config.dimensions,
       maxVectors: config.maxVectors || 10000,
       similarityMetric: config.similarityMetric || 'cosine',
+      type: config.type,
       persistToDisk: config.persistToDisk || false,
       storagePath: config.storagePath || './.vectordb'
     };
+    
+    this.config = fullConfig;
     
     this.logger = new Logger('info');
     
@@ -97,11 +101,13 @@ export class VectorDB implements IVectorDB {
   /**
    * Add a document to the vector database
    * 
-   * @param document - The document to add
-   * @param namespace - Optional namespace/collection to add the document to
+   * @param options - Document options
    * @returns Promise resolving to the document ID
    */
-  async addDocument(document: VectorDocument, namespace: string = this.defaultNamespace): Promise<string> {
+  async addDocument(options: VectorDocumentOptions): Promise<string> {
+    const document = options.document;
+    const namespace = options.collectionName || this.defaultNamespace;
+    
     // Create namespace if it doesn't exist
     if (!this.documents.has(namespace)) {
       this.documents.set(namespace, new Map());
@@ -127,6 +133,11 @@ export class VectorDB implements IVectorDB {
           throw new Error(`Vector dimensions mismatch: expected ${this.config.dimensions}, got ${document.embedding.length}`);
         }
         vectorsMap.set(document.id, [...document.embedding]);
+      } else if (options.embedding && options.embedding.length > 0) {
+        if (options.embedding.length !== this.config.dimensions) {
+          throw new Error(`Vector dimensions mismatch: expected ${this.config.dimensions}, got ${options.embedding.length}`);
+        }
+        vectorsMap.set(document.id, [...options.embedding]);
       } else {
         // In a real implementation, we would generate embeddings here
         // using an embedding model like OpenAI's text-embedding-ada-002
@@ -164,7 +175,12 @@ export class VectorDB implements IVectorDB {
     const ids: string[] = [];
     
     for (const document of documents) {
-      const id = await this.addDocument(document, namespace);
+      const options: VectorDocumentOptions = {
+        collectionName: namespace,
+        document,
+        embedding: document.embedding || []
+      };
+      const id = await this.addDocument(options);
       ids.push(id);
     }
     
@@ -174,28 +190,52 @@ export class VectorDB implements IVectorDB {
   /**
    * Search for similar documents using text query
    * 
-   * @param text - The text to search for
+   * @param query - The text to search for
    * @param options - Search options
    * @returns Promise resolving to an array of search results
    */
-  async searchByText(text: string, options: VectorSearchOptions = {}): Promise<VectorSearchResult[]> {
+  async searchByText(query: string, options: VectorSearchOptions = {}): Promise<VectorSearchResult[]> {
     // In a real implementation, we would generate an embedding for the text
     // and then search by vector. For now, we'll just create a random vector.
     const vector = this.createRandomVector();
-    return this.searchByVector(vector, options);
+    
+    const searchOptions: VectorSearchOptions = {
+      ...options,
+      vector
+    };
+    
+    return this.searchByVector(searchOptions);
   }
 
   /**
    * Search for similar documents using a vector
    * 
-   * @param vector - The embedding vector to search with
+   * @param options - Search options with vector
+   * @returns Promise resolving to an array of search results
+   */
+  async searchByVector(options: VectorSearchOptions): Promise<VectorSearchResult[]> {
+    if (!options.vector) {
+      throw new Error('Vector is required for searchByVector');
+    }
+    
+    return this.search(options);
+  }
+
+  /**
+   * Search for documents
+   * 
    * @param options - Search options
    * @returns Promise resolving to an array of search results
    */
-  async searchByVector(vector: number[], options: VectorSearchOptions = {}): Promise<VectorSearchResult[]> {
-    const namespace = options.namespace || this.defaultNamespace;
+  async search(options: VectorSearchOptions): Promise<VectorSearchResult[]> {
+    const namespace = options.namespace || options.collectionName || this.defaultNamespace;
     const limit = options.limit || 10;
     const minScore = options.minScore || 0;
+    const vector = options.vector;
+    
+    if (!vector) {
+      throw new Error('Vector is required for search');
+    }
     
     if (!this.vectors.has(namespace)) {
       return [];
@@ -277,51 +317,54 @@ export class VectorDB implements IVectorDB {
   /**
    * Update an existing document
    * 
-   * @param id - The document ID
-   * @param document - The updated document data
-   * @param namespace - Optional namespace/collection
-   * @returns Promise resolving to a boolean indicating success
+   * @param options - Document options
+   * @returns Promise resolving when update is complete
    */
-  async updateDocument(id: string, document: Partial<VectorDocument>, namespace: string = this.defaultNamespace): Promise<boolean> {
+  async updateDocument(options: VectorDocumentOptions): Promise<void> {
+    const document = options.document;
+    const namespace = options.collectionName || this.defaultNamespace;
+    
     if (!this.documents.has(namespace)) {
-      return false;
+      throw new Error(`Namespace ${namespace} does not exist`);
     }
     
     const documentsMap = this.documents.get(namespace);
     const vectorsMap = this.vectors.get(namespace);
     
     if (!documentsMap || !vectorsMap) {
-      return false;
+      throw new Error(`Namespace ${namespace} is not properly initialized`);
     }
     
-    if (!documentsMap.has(id)) {
-      return false;
+    if (!document.id || !documentsMap.has(document.id)) {
+      throw new Error(`Document with ID ${document.id} does not exist in namespace ${namespace}`);
     }
     
-    const existingDoc = documentsMap.get(id);
+    const existingDoc = documentsMap.get(document.id);
     if (!existingDoc) {
-      return false;
+      throw new Error(`Document with ID ${document.id} does not exist in namespace ${namespace}`);
     }
     
     const updatedDoc = { ...existingDoc, ...document };
     
     // Update document
-    documentsMap.set(id, updatedDoc);
+    documentsMap.set(document.id, updatedDoc);
     
     // Update vector if provided
-    if (document.embedding) {
-      if (document.embedding.length !== this.config.dimensions) {
-        throw new Error(`Vector dimensions mismatch: expected ${this.config.dimensions}, got ${document.embedding.length}`);
+    const embedding = options.embedding && options.embedding.length > 0 
+      ? options.embedding 
+      : document.embedding;
+      
+    if (embedding) {
+      if (embedding.length !== this.config.dimensions) {
+        throw new Error(`Vector dimensions mismatch: expected ${this.config.dimensions}, got ${embedding.length}`);
       }
-      vectorsMap.set(id, [...document.embedding]);
+      vectorsMap.set(document.id, [...embedding]);
     }
     
     // Save to disk if persistence is enabled
     if (this.config.persistToDisk) {
       await this.save();
     }
-    
-    return true;
   }
 
   /**
@@ -360,33 +403,43 @@ export class VectorDB implements IVectorDB {
   }
 
   /**
-   * Delete all documents in a namespace
+   * Delete all documents in a namespace/collection
    * 
-   * @param namespace - The namespace to clear
-   * @returns Promise resolving to the number of documents deleted
+   * @param collectionName - The collection name to clear
+   * @returns Promise resolving when deletion is complete
    */
-  async deleteNamespace(namespace: string): Promise<number> {
-    if (!this.documents.has(namespace)) {
-      return 0;
+  async deleteCollection(collectionName: string): Promise<void> {
+    if (!this.documents.has(collectionName)) {
+      return;
     }
-    
-    const documentsMap = this.documents.get(namespace);
-    if (!documentsMap) {
-      return 0;
-    }
-    
-    const count = documentsMap.size;
     
     // Delete namespace
-    this.documents.delete(namespace);
-    this.vectors.delete(namespace);
+    this.documents.delete(collectionName);
+    this.vectors.delete(collectionName);
     
     // Save to disk if persistence is enabled
     if (this.config.persistToDisk) {
       await this.save();
     }
+  }
+
+  /**
+   * Get document count in a collection
+   * 
+   * @param collectionName - The collection name
+   * @returns Promise resolving to the number of documents
+   */
+  async count(collectionName: string): Promise<number> {
+    if (!this.documents.has(collectionName)) {
+      return 0;
+    }
     
-    return count;
+    const documentsMap = this.documents.get(collectionName);
+    if (!documentsMap) {
+      return 0;
+    }
+    
+    return documentsMap.size;
   }
 
   /**

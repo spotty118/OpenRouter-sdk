@@ -41,8 +41,10 @@ export interface ExtendedVectorDBConfig extends VectorDBConfig {
  * Vector database types
  */
 export enum VectorDBType {
-  CHROMA = 'chroma',
-  DEFAULT = 'default'
+  /** Chroma vector database */
+  CHROMA = 'chroma', 
+  /** In-memory vector database with optional persistence */
+  IN_MEMORY = 'in-memory'
 }
 
 /**
@@ -235,6 +237,12 @@ export interface VectorDB {
    */
   listNamespaces(): Promise<string[]>;
 }
+
+/**
+ * Alias for VectorDB interface to maintain backward compatibility
+ * @deprecated Use VectorDB instead
+ */
+export type IVectorDB = VectorDB;
 
 /**
  * Chroma vector database configuration

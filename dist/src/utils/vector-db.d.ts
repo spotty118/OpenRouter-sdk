@@ -1,24 +1,15 @@
 /**
  * Vector database implementation for knowledge storage and retrieval
  */
-import { IVectorDB, VectorDBConfig, VectorDocument, VectorSearchOptions, VectorSearchResult } from '../interfaces/index.js';
-import { ChromaVectorDBConfig } from './chroma-vector-db.js';
-/**
- * Vector database type
- */
-export declare enum VectorDBType {
-    /** In-memory vector database with optional persistence */
-    InMemory = "in-memory",
-    /** Chroma vector database */
-    Chroma = "chroma"
-}
+import { VectorDB as IVectorDB, VectorDBConfig, VectorDocument, VectorSearchOptions, VectorDBType, VectorDocumentOptions, ChromaVectorDBConfig, VectorSearchResult } from '../interfaces/index.js';
+export { VectorDBType } from '../interfaces/index.js';
 /**
  * Extended vector database configuration with type
  */
 export interface ExtendedVectorDBConfig extends VectorDBConfig {
-    /** Type of vector database to use */
-    type?: VectorDBType;
-    /** Chroma-specific configuration (only used if type is Chroma) */
+    /** Type of vector database to use (overrides the one from VectorDBConfig) */
+    type: VectorDBType;
+    /** Chroma-specific configuration (only used if type is CHROMA) */
     chroma?: Omit<ChromaVectorDBConfig, keyof VectorDBConfig>;
 }
 /**
@@ -49,11 +40,10 @@ export declare class VectorDB implements IVectorDB {
     /**
      * Add a document to the vector database
      *
-     * @param document - The document to add
-     * @param namespace - Optional namespace/collection to add the document to
+     * @param options - Document options
      * @returns Promise resolving to the document ID
      */
-    addDocument(document: VectorDocument, namespace?: string): Promise<string>;
+    addDocument(options: VectorDocumentOptions): Promise<string>;
     /**
      * Add multiple documents to the vector database
      *
@@ -65,19 +55,25 @@ export declare class VectorDB implements IVectorDB {
     /**
      * Search for similar documents using text query
      *
-     * @param text - The text to search for
+     * @param query - The text to search for
      * @param options - Search options
      * @returns Promise resolving to an array of search results
      */
-    searchByText(text: string, options?: VectorSearchOptions): Promise<VectorSearchResult[]>;
+    searchByText(query: string, options?: VectorSearchOptions): Promise<VectorSearchResult[]>;
     /**
      * Search for similar documents using a vector
      *
-     * @param vector - The embedding vector to search with
+     * @param options - Search options with vector
+     * @returns Promise resolving to an array of search results
+     */
+    searchByVector(options: VectorSearchOptions): Promise<VectorSearchResult[]>;
+    /**
+     * Search for documents
+     *
      * @param options - Search options
      * @returns Promise resolving to an array of search results
      */
-    searchByVector(vector: number[], options?: VectorSearchOptions): Promise<VectorSearchResult[]>;
+    search(options: VectorSearchOptions): Promise<VectorSearchResult[]>;
     /**
      * Get a document by its ID
      *
@@ -89,12 +85,10 @@ export declare class VectorDB implements IVectorDB {
     /**
      * Update an existing document
      *
-     * @param id - The document ID
-     * @param document - The updated document data
-     * @param namespace - Optional namespace/collection
-     * @returns Promise resolving to a boolean indicating success
+     * @param options - Document options
+     * @returns Promise resolving when update is complete
      */
-    updateDocument(id: string, document: Partial<VectorDocument>, namespace?: string): Promise<boolean>;
+    updateDocument(options: VectorDocumentOptions): Promise<void>;
     /**
      * Delete a document by its ID
      *
@@ -104,12 +98,19 @@ export declare class VectorDB implements IVectorDB {
      */
     deleteDocument(id: string, namespace?: string): Promise<boolean>;
     /**
-     * Delete all documents in a namespace
+     * Delete all documents in a namespace/collection
      *
-     * @param namespace - The namespace to clear
-     * @returns Promise resolving to the number of documents deleted
+     * @param collectionName - The collection name to clear
+     * @returns Promise resolving when deletion is complete
      */
-    deleteNamespace(namespace: string): Promise<number>;
+    deleteCollection(collectionName: string): Promise<void>;
+    /**
+     * Get document count in a collection
+     *
+     * @param collectionName - The collection name
+     * @returns Promise resolving to the number of documents
+     */
+    count(collectionName: string): Promise<number>;
     /**
      * Get all available namespaces
      *

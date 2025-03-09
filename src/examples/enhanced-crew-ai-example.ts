@@ -7,7 +7,7 @@
 
 import { AIOrchestrator } from '../core/ai-orchestrator.js';
 import { CrewAI } from '../utils/crew-ai.js';
-import { ProcessMode } from '../interfaces/index.js';
+import { ProcessMode, VectorDBType } from '../interfaces/index.js';
 
 /**
  * One-line setup for creating a complete agent system
@@ -73,6 +73,7 @@ async function quickSetupExample() {
         id: 'research-knowledge',
         config: {
           dimensions: 1536,
+          type: VectorDBType.IN_MEMORY,
           persistToDisk: true,
           storagePath: './data/research-db'
         },

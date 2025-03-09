@@ -4,7 +4,7 @@
  * This module provides a ChromaDB-based implementation of vector database functionality
  * for semantic search and document storage.
  */
-import { VectorSearchResult, VectorDocumentOptions, VectorSearchOptions, VectorDeleteOptions, VectorDB } from '../interfaces/vector-db.js';
+import { VectorDocument, VectorSearchResult, VectorDocumentOptions, VectorSearchOptions, VectorDB } from '../interfaces/vector-db.js';
 /**
  * ChromaDB Vector Database implementation
  */
@@ -35,7 +35,7 @@ export declare class ChromaVectorDB implements VectorDB {
      *
      * @param options Document options
      */
-    addDocument(options: VectorDocumentOptions): Promise<void>;
+    addDocument(options: VectorDocumentOptions): Promise<string>;
     /**
      * Update a document in the database
      *
@@ -47,7 +47,7 @@ export declare class ChromaVectorDB implements VectorDB {
      *
      * @param options Delete options
      */
-    deleteDocument(options: VectorDeleteOptions): Promise<void>;
+    deleteDocument(id: string, namespace?: string): Promise<boolean>;
     /**
      * Search for documents by text query or vector embedding
      *
@@ -79,5 +79,35 @@ export declare class ChromaVectorDB implements VectorDB {
      * Reset the database (delete all collections)
      */
     reset(): Promise<void>;
+    /**
+     * Add multiple documents to the database
+     *
+     * @param documents Array of documents to add
+     * @param namespace Optional namespace/collection
+     * @returns Array of document IDs
+     */
+    addDocuments(documents: VectorDocument[], namespace?: string): Promise<string[]>;
+    /**
+     * Search by text query
+     *
+     * @param query Text query
+     * @param options Search options
+     * @returns Search results
+     */
+    searchByText(query: string, options?: VectorSearchOptions): Promise<VectorSearchResult[]>;
+    /**
+     * Get a document by ID
+     *
+     * @param id Document ID
+     * @param namespace Optional namespace
+     * @returns Document or null if not found
+     */
+    getDocument(id: string, namespace?: string): Promise<VectorDocument | null>;
+    /**
+     * List all available namespaces
+     *
+     * @returns Array of namespace names
+     */
+    listNamespaces(): Promise<string[]>;
 }
 //# sourceMappingURL=chroma-vector-db.d.ts.map

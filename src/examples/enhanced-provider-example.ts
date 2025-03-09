@@ -13,6 +13,7 @@ import { GeminiConfig } from '../providers/google-gemini.js';
 import { OpenAIConfig } from '../providers/openai.js';
 import { VertexAIConfig } from '../providers/google-vertex.js';
 import { ProcessMode } from '../interfaces/crew-ai.js';
+import { VectorDBType } from '../interfaces/index.js';
 
 /**
  * Example showing provider integration with CrewAI and Vector DB
@@ -122,6 +123,7 @@ async function main() {
   // Create vector database
   const vectorDb = openRouter.createVectorDb({
     dimensions: 1536,
+    type: VectorDBType.IN_MEMORY,
     maxVectors: 10000,
     similarityMetric: 'cosine'
   });

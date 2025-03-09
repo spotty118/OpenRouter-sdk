@@ -70,6 +70,7 @@ export class ChromaVectorDB {
                 documents: [options.document.content]
             });
             this.logger.info(`Added document ${options.document.id} to collection ${options.collectionName}`);
+            return options.document.id;
         }
         catch (error) {
             this.logger.error('Failed to add document:', error);
@@ -102,11 +103,12 @@ export class ChromaVectorDB {
      *
      * @param options Delete options
      */
-    async deleteDocument(options) {
+    async deleteDocument(id, namespace = 'default') {
         try {
-            const collection = await this.getOrCreateCollection(options.collectionName);
-            await collection.delete({ ids: [options.id] });
-            this.logger.info(`Deleted document ${options.id} from collection ${options.collectionName}`);
+            const collection = await this.getOrCreateCollection(namespace);
+            await collection.delete({ ids: [id] });
+            this.logger.info(`Deleted document ${id} from collection ${namespace}`);
+            return true;
         }
         catch (error) {
             this.logger.error('Failed to delete document:', error);
@@ -121,7 +123,8 @@ export class ChromaVectorDB {
      */
     async search(options) {
         try {
-            const collection = await this.getOrCreateCollection(options.collectionName);
+            const collectionName = options.collectionName || options.namespace || 'default';
+            const collection = await this.getOrCreateCollection(collectionName);
             // Prepare search parameters
             const searchParams = {
                 nResults: options.limit || 10
@@ -221,6 +224,58 @@ export class ChromaVectorDB {
             this.logger.error('Failed to reset database:', error);
             throw error;
         }
+    }
+    /**
+     * Add multiple documents to the database
+     *
+     * @param documents Array of documents to add
+     * @param namespace Optional namespace/collection
+     * @returns Array of document IDs
+     */
+    async addDocuments(documents, namespace = 'default') {
+        const ids = [];
+        for (const document of documents) {
+            // Create document options
+            const options = {
+                collectionName: namespace,
+                document,
+                embedding: document.embedding || []
+            };
+            const id = await this.addDocument(options);
+            ids.push(id);
+        }
+        return ids;
+    }
+    /**
+     * Search by text query
+     *
+     * @param query Text query
+     * @param options Search options
+     * @returns Search results
+     */
+    async searchByText(query, options = {}) {
+        return this.search({ ...options, query });
+    }
+    /**
+     * Get a document by ID
+     *
+     * @param id Document ID
+     * @param namespace Optional namespace
+     * @returns Document or null if not found
+     */
+    async getDocument(id, namespace = 'default') {
+        // Implementation would require fetching the document from ChromaDB
+        // For now, return null as a placeholder
+        return null;
+    }
+    /**
+     * List all available namespaces
+     *
+     * @returns Array of namespace names
+     */
+    async listNamespaces() {
+        // Implementation would require listing all collections from ChromaDB
+        return ['default'];
     }
 }
 //# sourceMappingURL=chroma-vector-db.js.map

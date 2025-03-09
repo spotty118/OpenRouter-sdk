@@ -2,7 +2,7 @@
  * Example usage of the AIOrchestrator class
  */
 import { AIOrchestrator } from '../core/ai-orchestrator.js';
-import { ProcessMode } from '../interfaces/index.js';
+import { ProcessMode, VectorDBType } from '../interfaces/index.js';
 /**
  * This example demonstrates how to use the AIOrchestrator class to:
  * 1. Create and register functions for AI models to call
@@ -65,6 +65,7 @@ async function runExample() {
     // Create a vector database for knowledge storage
     const vectorDb = orchestrator.createVectorDb('research-knowledge', {
         dimensions: 1536,
+        type: VectorDBType.IN_MEMORY,
         maxVectors: 10000,
         similarityMetric: 'cosine',
         persistToDisk: true,

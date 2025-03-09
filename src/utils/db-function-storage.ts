@@ -274,10 +274,7 @@ export class DbFunctionStorage implements FunctionStorageDriver {
       }
       
       // Delete from database
-      await this.db.deleteDocument({
-        collectionName: this.collectionName,
-        id: results[0].document.id
-      });
+      await this.db.deleteDocument(results[0].document.id, this.collectionName);
       
       // Also delete stats
       await this.db.search({
@@ -286,10 +283,7 @@ export class DbFunctionStorage implements FunctionStorageDriver {
         limit: 1
       }).then(async results => {
         if (results.length) {
-          await this.db.deleteDocument({
-            collectionName: this.collectionName,
-            id: results[0].document.id
-          });
+          await this.db.deleteDocument(results[0].document.id, this.collectionName);
         }
       }).catch(() => {});
       
@@ -463,7 +457,9 @@ export class DbFunctionStorage implements FunctionStorageDriver {
       const results = await this.db.searchByVector({
         collectionName: this.collectionName,
         vector: embedding,
-        filter: "metadata.type = 'function-definition'",
+        filter: (metadata: Record<string, any>) => {
+          return metadata.type === 'function-definition';
+        },
         limit
       });
       

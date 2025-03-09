@@ -7,6 +7,7 @@ import express from 'express';
 import { OpenRouter } from '../../core/open-router.js';
 import { OpenRouterError } from '../../errors/openrouter-error.js';
 import { Logger } from '../../utils/logger.js';
+import { VectorDBType } from '../../interfaces/index.js';
 const router = express.Router();
 const logger = new Logger('info');
 // Create a single instance of OpenRouter to reuse across routes
@@ -89,10 +90,17 @@ router.post('/:id/documents', async (req, res) => {
         // Create vector database (this would typically be retrieved from a database in a real implementation)
         const vectorDb = openRouter.createVectorDb({
             dimensions: 1536, // Default dimensions
-            similarityMetric: 'cosine'
+            similarityMetric: 'cosine',
+            type: VectorDBType.IN_MEMORY
         });
         // Add document
-        const documentId = await vectorDb.addDocument(document);
+        // Create proper VectorDocumentOptions
+        const documentOptions = {
+            collectionName: 'default', // Using default collection
+            document,
+            embedding: document.embedding || [] // Use existing embedding or empty array
+        };
+        const documentId = await vectorDb.addDocument(documentOptions);
         // Return the response
         res.status(201).json({ documentId });
     }
@@ -147,7 +155,8 @@ router.post('/:id/documents/batch', async (req, res) => {
         // Create vector database (this would typically be retrieved from a database in a real implementation)
         const vectorDb = openRouter.createVectorDb({
             dimensions: 1536, // Default dimensions
-            similarityMetric: 'cosine'
+            similarityMetric: 'cosine',
+            type: VectorDBType.IN_MEMORY
         });
         // Add documents
         const documentIds = await vectorDb.addDocuments(documents);
@@ -197,7 +206,8 @@ router.get('/:id/search', async (req, res) => {
         // Create vector database (this would typically be retrieved from a database in a real implementation)
         const vectorDb = openRouter.createVectorDb({
             dimensions: 1536, // Default dimensions
-            similarityMetric: 'cosine'
+            similarityMetric: 'cosine',
+            type: VectorDBType.IN_MEMORY
         });
         // Search
         const options = {
@@ -241,7 +251,8 @@ router.get('/:id/documents/:documentId', async (req, res) => {
         // Create vector database (this would typically be retrieved from a database in a real implementation)
         const vectorDb = openRouter.createVectorDb({
             dimensions: 1536, // Default dimensions
-            similarityMetric: 'cosine'
+            similarityMetric: 'cosine',
+            type: VectorDBType.IN_MEMORY
         });
         // Get document
         const document = await vectorDb.getDocument(documentId, namespace);
@@ -288,7 +299,8 @@ router.delete('/:id/documents/:documentId', async (req, res) => {
         // Create vector database (this would typically be retrieved from a database in a real implementation)
         const vectorDb = openRouter.createVectorDb({
             dimensions: 1536, // Default dimensions
-            similarityMetric: 'cosine'
+            similarityMetric: 'cosine',
+            type: VectorDBType.IN_MEMORY
         });
         // Delete document
         const success = await vectorDb.deleteDocument(documentId, namespace);

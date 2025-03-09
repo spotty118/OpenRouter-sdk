@@ -149,7 +149,7 @@ export class AgentMemory {
     try {
       this.vectorDb = createVectorDB({
         ...this.config.vectorDb,
-        type: VectorDBType.Chroma
+        type: VectorDBType.CHROMA
       });
       this.logger.debug(`Initialized vector database for agent ${this.agentId}`);
     } catch (error) {

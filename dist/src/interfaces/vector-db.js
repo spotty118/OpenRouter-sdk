@@ -6,7 +6,9 @@
  */
 export var VectorDBType;
 (function (VectorDBType) {
+    /** Chroma vector database */
     VectorDBType["CHROMA"] = "chroma";
-    VectorDBType["DEFAULT"] = "default";
+    /** In-memory vector database with optional persistence */
+    VectorDBType["IN_MEMORY"] = "in-memory";
 })(VectorDBType || (VectorDBType = {}));
 //# sourceMappingURL=vector-db.js.map
