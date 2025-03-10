@@ -1,51 +1,101 @@
 /**
- * Rate limiting utility
- */
-
-/**
- * Controls the rate of API requests
+ * Simple rate limiter utility
  */
 export class RateLimiter {
-  private maxRequestsPerMinute: number;
-  private requestTimestamps: number[] = [];
-  
+  private requestQueue: Array<Promise<void>> = [];
+  private interval: number;
+  private maxRequestsPerInterval: number;
+  private lastRequestTime: number = 0;
+
   /**
    * Create a new rate limiter
-   * @param maxRequestsPerMinute - Maximum requests per minute (0 = no limit)
+   * 
+   * @param requestsPerMinute - Maximum requests per minute (default: 0 - no limit)
    */
-  constructor(maxRequestsPerMinute: number = 0) {
-    this.maxRequestsPerMinute = maxRequestsPerMinute;
+  constructor(requestsPerMinute: number = 0) {
+    // Convert requests per minute to interval in milliseconds
+    this.maxRequestsPerInterval = requestsPerMinute;
+    
+    if (requestsPerMinute > 0) {
+      // Calculate minimum interval between requests to respect the limit
+      this.interval = (60 * 1000) / requestsPerMinute;
+    } else {
+      // No limit
+      this.interval = 0;
+    }
   }
-  
+
   /**
-   * Throttle requests to respect rate limits
+   * Throttle requests to respect the rate limit
    * 
-   * This method will pause execution (using await) if the 
-   * current request would exceed the configured rate limit.
-   * 
-   * @returns Promise that resolves when it's safe to proceed
+   * @returns Promise that resolves when the request is allowed to proceed
    */
   async throttle(): Promise<void> {
-    if (this.maxRequestsPerMinute <= 0) return;
-    
-    // Clean up old timestamps (older than 1 minute)
+    // If no rate limiting is configured, return immediately
+    if (this.interval <= 0) {
+      return Promise.resolve();
+    }
+
+    // Calculate time since last request
     const now = Date.now();
-    const oneMinuteAgo = now - 60 * 1000;
-    this.requestTimestamps = this.requestTimestamps.filter(ts => ts > oneMinuteAgo);
+    const timeSinceLastRequest = now - this.lastRequestTime;
     
-    // Check if we've hit the rate limit
-    if (this.requestTimestamps.length >= this.maxRequestsPerMinute) {
-      // Calculate time to wait until we can make another request
-      const oldestTimestamp = this.requestTimestamps[0];
-      const timeToWait = oldestTimestamp + 60 * 1000 - now;
-      
-      if (timeToWait > 0) {
-        // Wait until we can make another request
-        await new Promise(resolve => setTimeout(resolve, timeToWait));
-      }
+    // Calculate delay needed to respect the rate limit
+    let delay = 0;
+    
+    if (timeSinceLastRequest < this.interval) {
+      delay = this.interval - timeSinceLastRequest;
     }
     
-    // Add current timestamp to list
-    this.requestTimestamps.push(Date.now());
+    // Update last request time
+    this.lastRequestTime = now + delay;
+    
+    // Create a promise that resolves after the delay
+    const currentRequest = new Promise<void>((resolve) => {
+      setTimeout(() => {
+        resolve();
+        
+        // Remove this request from the queue
+        const index = this.requestQueue.indexOf(currentRequest);
+        if (index !== -1) {
+          this.requestQueue.splice(index, 1);
+        }
+      }, delay);
+    });
+    
+    // Add this request to the queue
+    this.requestQueue.push(currentRequest);
+    
+    // Wait for this request to be allowed
+    return currentRequest;
+  }
+
+  /**
+   * Get the number of requests currently in the queue
+   */
+  get queueSize(): number {
+    return this.requestQueue.length;
+  }
+
+  /**
+   * Get the configured requests per minute limit
+   */
+  get requestsPerMinute(): number {
+    return this.maxRequestsPerInterval;
+  }
+
+  /**
+   * Set a new rate limit
+   * 
+   * @param requestsPerMinute - New maximum requests per minute
+   */
+  setRateLimit(requestsPerMinute: number): void {
+    this.maxRequestsPerInterval = requestsPerMinute;
+    
+    if (requestsPerMinute > 0) {
+      this.interval = (60 * 1000) / requestsPerMinute;
+    } else {
+      this.interval = 0;
+    }
   }
 }

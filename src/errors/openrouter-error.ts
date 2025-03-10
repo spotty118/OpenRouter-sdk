@@ -1,27 +1,64 @@
 /**
- * Custom error class for OpenRouter API errors
- */
-
-/**
- * Represents an error returned by the OpenRouter API
+ * Custom error class for OpenRouter-specific errors
  */
 export class OpenRouterError extends Error {
-  /** HTTP status code */
-  status: number;
-  
-  /** Additional error data from API */
-  data: any;
-  
   /**
    * Create a new OpenRouter error
+   * 
    * @param message - Error message
-   * @param status - HTTP status code (default: 0)
-   * @param data - Additional error data (default: null)
+   * @param statusCode - HTTP status code
+   * @param details - Additional error details
    */
-  constructor(message: string, status: number = 0, data: any = null) {
+  constructor(
+    message: string,
+    public readonly statusCode: number,
+    public readonly details: unknown
+  ) {
     super(message);
     this.name = 'OpenRouterError';
-    this.status = status;
-    this.data = data;
+    
+    // Ensure instanceof works correctly
+    Object.setPrototypeOf(this, OpenRouterError.prototype);
+  }
+
+  /**
+   * Convert error to JSON representation
+   */
+  toJSON() {
+    return {
+      error: {
+        message: this.message,
+        code: this.statusCode,
+        details: this.details,
+        type: this.name
+      }
+    };
+  }
+
+  /**
+   * Static factory methods for common errors
+   */
+  static notFound(message: string, details?: unknown): OpenRouterError {
+    return new OpenRouterError(message, 404, details);
+  }
+
+  static badRequest(message: string, details?: unknown): OpenRouterError {
+    return new OpenRouterError(message, 400, details);
+  }
+
+  static unauthorized(message: string, details?: unknown): OpenRouterError {
+    return new OpenRouterError(message, 401, details);
+  }
+
+  static forbidden(message: string, details?: unknown): OpenRouterError {
+    return new OpenRouterError(message, 403, details);
+  }
+
+  static tooManyRequests(message: string, details?: unknown): OpenRouterError {
+    return new OpenRouterError(message, 429, details);
+  }
+
+  static internalError(message: string, details?: unknown): OpenRouterError {
+    return new OpenRouterError(message, 500, details);
   }
 }

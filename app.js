@@ -1,52 +1,269 @@
+/**
+ * OpenRouter SDK Demo Application
+ * Client-side implementation showcasing OpenRouter SDK capabilities
+ */
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize variables
+    // Initialize variables with proper documentation
+    
+    /**
+     * API Key management with secure storage
+     * Note: For production applications, consider using more secure storage methods
+     * than localStorage, such as HTTP-only cookies, session storage with proper expiration,
+     * or authenticated endpoints that handle the API key server-side
+     */
     let apiKey = localStorage.getItem('openrouter_api_key') || '';
+    
+    // SDK instance and state management
     let openRouter = null;
     let chatMessages = [];
     let streamMessages = [];
     let vectorDbs = {};
+    
+    // Track initialization status
+    let sdkInitialized = false;
 
-    // Set API key if available
+    // Set API key in UI if available
     const apiKeyInput = document.getElementById('api-key');
-    apiKeyInput.value = apiKey;
-
-    // Initialize OpenRouter if API key is available
+    
+    // Mask the API key in the UI for security (show only last 4 characters)
     if (apiKey) {
+        apiKeyInput.value = apiKey;
+        
+        // Show partial key in UI elements that display the key
+        const keyDisplays = document.querySelectorAll('.api-key-display');
+        const maskedKey = maskApiKey(apiKey);
+        keyDisplays.forEach(el => {
+            if (el) el.textContent = maskedKey;
+        });
+        
+        // Initialize OpenRouter with the API key
         initializeOpenRouter(apiKey);
     }
 
-    // Save API key
+    /**
+     * API Key validation and storage
+     * Checks for basic validation before saving and initializing
+     */
     document.getElementById('save-api-key').addEventListener('click', function() {
         const newApiKey = apiKeyInput.value.trim();
-        if (newApiKey) {
-            apiKey = newApiKey;
-            localStorage.setItem('openrouter_api_key', apiKey);
-            initializeOpenRouter(apiKey);
-            alert('API key saved successfully!');
-        } else {
-            alert('Please enter a valid API key');
+        
+        // Basic API key validation
+        if (!newApiKey) {
+            showError('API Key Error', 'Please enter a valid API key');
+            return;
         }
+        
+        // Simple format validation (OpenRouter keys are typically long strings)
+        if (newApiKey.length < 20) { 
+            showError('API Key Error', 'The API key appears to be too short. Please check your key.');
+            return;
+        }
+        
+        // Save and initialize
+        apiKey = newApiKey;
+        localStorage.setItem('openrouter_api_key', apiKey);
+        
+        // Display success message
+        showSuccess('API key saved successfully!');
+        
+        // Re-initialize with new key
+        initializeOpenRouter(apiKey);
+        
+        // Update masked displays
+        const keyDisplays = document.querySelectorAll('.api-key-display');
+        const maskedKey = maskApiKey(apiKey);
+        keyDisplays.forEach(el => {
+            if (el) el.textContent = maskedKey;
+        });
+    });
+    
+    // Clear API key
+    document.getElementById('clear-api-key')?.addEventListener('click', function() {
+        apiKey = '';
+        localStorage.removeItem('openrouter_api_key');
+        apiKeyInput.value = '';
+        openRouter = null;
+        sdkInitialized = false;
+        showSuccess('API key cleared successfully!');
+        updateStatusIndicators(false);
     });
 
-    // Initialize OpenRouter SDK
-    function initializeOpenRouter(key) {
+    /**
+     * Helper function to mask API key for display
+     * Shows only the last 4 characters, masking the rest with asterisks
+     * @param {string} key - The full API key
+     * @returns {string} - The masked API key
+     */
+    function maskApiKey(key) {
+        if (!key || key.length <= 4) return key;
+        return '•'.repeat(key.length - 4) + key.slice(-4);
+    }
+    
+    /**
+     * Helper function to show error messages consistently
+     * @param {string} title - Error title
+     * @param {string} message - Error message
+     * @param {number} [duration=5000] - Duration in ms before auto-hiding the message
+     */
+    function showError(title, message, duration = 5000) {
+        console.error(`${title}: ${message}`);
+        // Check if we have a dedicated error container
+        const errorContainer = document.getElementById('error-container');
+        if (errorContainer) {
+            errorContainer.innerHTML = `<div class="error-message"><strong>${title}</strong>: ${message}</div>`;
+            errorContainer.style.display = 'block';
+            // Auto-hide after specified duration
+            setTimeout(() => {
+                errorContainer.style.display = 'none';
+            }, duration);
+        } else {
+            // Fallback to alert
+            alert(`${title}: ${message}`);
+        }
+    }
+    
+    /**
+     * Helper function to show success messages consistently
+     * @param {string} message - Success message
+     * @param {number} [duration=3000] - Duration in ms before auto-hiding the message
+     */
+    function showSuccess(message, duration = 3000) {
+        console.log(`Success: ${message}`);
+        // Check if we have a dedicated success container
+        const successContainer = document.getElementById('success-container');
+        if (successContainer) {
+            successContainer.innerHTML = `<div class="success-message">${message}</div>`;
+            successContainer.style.display = 'block';
+            // Auto-hide after specified duration
+            setTimeout(() => {
+                successContainer.style.display = 'none';
+            }, duration);
+        } else {
+            // Fallback to alert
+            alert(message);
+        }
+    }
+    
+    /**
+     * Update status indicators throughout the UI
+     * @param {boolean} isInitialized - Whether the SDK is initialized
+     */
+    function updateStatusIndicators(isInitialized) {
+        const statusIndicators = document.querySelectorAll('.sdk-status');
+        statusIndicators.forEach(indicator => {
+            if (indicator) {
+                indicator.className = 'sdk-status ' + (isInitialized ? 'status-ready' : 'status-error');
+                indicator.textContent = isInitialized ? 'SDK Ready' : 'SDK Not Initialized';
+            }
+        });
+    }
+    
+    /**
+     * Initialize OpenRouter SDK with proper error handling
+     * @param {string} key - The API key to use
+     * @returns {Promise<void>}
+     */
+    async function initializeOpenRouter(key) {
         try {
+            // Validate key format before attempting initialization
+            if (!key || typeof key !== 'string' || key.trim().length < 20) {
+                throw new Error('Invalid API key format. OpenRouter API keys should be at least 20 characters long.');
+            }
+            
             // This assumes the OpenRouter SDK is available as a global variable
-            // In a real implementation, you would import it properly
-            // Check if the SDK is available in the global scope
+            // In a real implementation, you would import it properly using module bundlers
             if (typeof OpenRouter !== 'undefined') {
+                // Create SDK instance with configuration
                 openRouter = new OpenRouter({
                     apiKey: key,
-                    defaultModel: 'openai/gpt-3.5-turbo'
+                    defaultModel: 'openai/gpt-3.5-turbo',
+                    // Add additional configuration for better error handling
+                    maxRetries: 3,
+                    timeout: 60000, // 60 seconds
+                    debug: false    // Set to true for verbose logging during development
                 });
+                
+                try {
+                    // Test the connection by listing models
+                    const models = await openRouter.listModels();
+                    
+                    if (!models || !models.data || !Array.isArray(models.data)) {
+                        throw new Error('Invalid response from OpenRouter API');
+                    }
+                    
+                    console.log(`SDK initialized with ${models.data.length} available models`); 
+                    sdkInitialized = true;
+                    updateStatusIndicators(true);
+                    showSuccess('OpenRouter SDK initialized successfully!');
+                    
+                    // Populate model dropdowns with available models
+                    populateModelDropdowns(models.data);
+                } catch (error) {
+                    console.error('API connection error:', error);
+                    sdkInitialized = false;
+                    updateStatusIndicators(false);
+                    
+                    // Provide helpful error messages based on error type
+                    if (error.status === 401) {
+                        showError('Authentication Error', 'The provided API key is invalid. Please check your key.');
+                    } else if (error.status === 403) {
+                        showError('Permission Error', 'The API key does not have permission to access this resource.');
+                    } else if (error.status === 429) {
+                        showError('Rate Limit Error', 'You have exceeded your rate limit. Please try again later.');
+                    } else if (error.message && error.message.includes('timeout')) {
+                        showError('Timeout Error', 'The connection to OpenRouter timed out. Please try again later.');
+                    } else if (error.message && error.message.includes('network')) {
+                        showError('Network Error', 'Unable to connect to OpenRouter. Please check your internet connection.');
+                    } else {
+                        showError('API Error', error.message || 'Failed to connect to OpenRouter API');
+                    }
+                }
             } else {
                 console.error('OpenRouter SDK not found. Make sure the script is loaded correctly.');
-                alert('OpenRouter SDK not found. Make sure the script is loaded correctly.');
+                showError('SDK Error', 'OpenRouter SDK not found. Make sure the script is loaded correctly.');
+                updateStatusIndicators(false);
             }
         } catch (error) {
             console.error('Failed to initialize OpenRouter:', error);
-            alert('Failed to initialize OpenRouter SDK. Check console for details.');
+            showError('SDK Error', 'Failed to initialize OpenRouter SDK: ' + (error.message || 'Unknown error'));
+            updateStatusIndicators(false);
         }
+    }
+    
+    /**
+     * Populates model selection dropdowns with available models
+     * @param {Array} models - Array of available models from the API
+     */
+    function populateModelDropdowns(models) {
+        if (!Array.isArray(models) || models.length === 0) return;
+        
+        // Get all model select dropdowns
+        const modelSelects = document.querySelectorAll('select[id$="-model"]');
+        
+        modelSelects.forEach(select => {
+            // Store current selection if any
+            const currentSelection = select.value;
+            
+            // Clear existing options except the default ones (first ones)
+            while (select.options.length > 1) {
+                select.remove(1);
+            }
+            
+            // Add models as options
+            models.forEach(model => {
+                if (!model.id) return;
+                
+                const option = document.createElement('option');
+                option.value = model.id;
+                option.textContent = `${model.id}${model.pricing ? ` - $${model.pricing.prompt}/1M in, $${model.pricing.completion}/1M out` : ''}`;
+                select.appendChild(option);
+                
+                // If this was the previously selected model, reselect it
+                if (model.id === currentSelection) {
+                    select.value = model.id;
+                }
+            });
+        });
     }
 
     // Tab switching
@@ -105,7 +322,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Chat Completions
+    /**
+     * Chat Completions
+     * Handles sending chat messages to the API and displaying responses
+     */
     document.getElementById('chat-send').addEventListener('click', sendChatMessage);
     document.getElementById('chat-input').addEventListener('keydown', function(e) {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -114,25 +334,83 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    /**
+     * Send a chat message to OpenRouter API and display the response
+     * Includes improved error handling and UI feedback
+     */
+    /**
+     * Send a chat message to the OpenRouter API and handle the response
+     * @returns {Promise<void>}
+     */
     async function sendChatMessage() {
+        // Verify SDK initialization
         if (!openRouter) {
-            alert('Please set your OpenRouter API key first');
+            showError('SDK Error', 'Please set your OpenRouter API key first');
             return;
         }
-
+        
+        // Validate input
         const chatInput = document.getElementById('chat-input');
+        if (!chatInput) {
+            console.error('Chat input element not found');
+            return;
+        }
+        
         const userMessage = chatInput.value.trim();
         
-        if (!userMessage) return;
+        if (!userMessage) {
+            showError('Input Error', 'Please enter a message', 2000);
+            return;
+        }
         
-        // Clear input
+        // Clear input and focus for next message
         chatInput.value = '';
+        chatInput.focus();
         
-        // Get chat settings
-        const model = document.getElementById('chat-model').value;
-        const temperature = parseFloat(document.getElementById('chat-temperature').value);
-        const maxTokens = parseInt(document.getElementById('chat-max-tokens').value);
-        const systemMessage = document.getElementById('chat-system-message').value.trim();
+        // Get chat settings with validation
+        const modelSelect = document.getElementById('chat-model');
+        if (!modelSelect) {
+            console.error('Model selection element not found');
+            return;
+        }
+        
+        const model = modelSelect.value;
+        if (!model) {
+            showError('Configuration Error', 'Please select a model');
+            return;
+        }
+        
+        // Initialize with safe defaults
+        let temperature = 0.7; // Default
+        let maxTokens = 1000; // Default
+        
+        try {
+            // Get and validate temperature
+            const tempElement = document.getElementById('chat-temperature');
+            if (tempElement) {
+                temperature = parseFloat(tempElement.value);
+                if (isNaN(temperature) || temperature < 0 || temperature > 2) {
+                    temperature = 0.7; // Reset to default if invalid
+                    console.warn('Invalid temperature value, using default of 0.7');
+                }
+            }
+            
+            // Get and validate max tokens
+            const maxTokensElement = document.getElementById('chat-max-tokens');
+            if (maxTokensElement) {
+                maxTokens = parseInt(maxTokensElement.value);
+                if (isNaN(maxTokens) || maxTokens < 1 || maxTokens > 8192) {
+                    maxTokens = 1000; // Reset to default if invalid
+                    console.warn('Invalid max_tokens value, using default of 1000');
+                }
+            }
+        } catch (e) {
+            console.warn('Error parsing parameters, using defaults:', e);
+        }
+        
+        // Get system message if provided
+        const systemMessageElement = document.getElementById('chat-system-message');
+        const systemMessage = systemMessageElement ? systemMessageElement.value.trim() : '';
         
         // Add system message if provided and not already added
         if (systemMessage && !chatMessages.some(msg => msg.role === 'system')) {
@@ -145,16 +423,33 @@ document.addEventListener('DOMContentLoaded', function() {
         // Update chat UI
         updateChatUI('chat-messages', chatMessages);
         
+        // Track request start time for latency calculation
+        const requestStartTime = Date.now();
+        
+        // Get message container for status updates
+        const messagesContainer = document.getElementById('chat-messages');
+        
+        // Validate messagesContainer exists
+        if (!messagesContainer) {
+            console.error('Chat messages container not found');
+            return;
+        }
+        
         try {
-            // Add loading indicator
-            const messagesContainer = document.getElementById('chat-messages');
+            // Add loading indicator with unique ID for easy removal
+            const loadingId = 'loading-' + Date.now();
             const loadingDiv = document.createElement('div');
+            loadingDiv.id = loadingId;
             loadingDiv.className = 'message-container loading-container';
             loadingDiv.innerHTML = '<div class="message-header assistant-header">Assistant</div><div class="message assistant-message"><div class="loading"></div></div>';
             messagesContainer.appendChild(loadingDiv);
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
             
-            // Send request to OpenRouter
+            // Show model information
+            const statusContainer = document.getElementById('chat-status') || document.createElement('div');
+            statusContainer.innerHTML = `<span class="status-info">Requesting: ${model}, temp: ${temperature}</span>`;
+            
+            // Prepare request with proper error handling
             const response = await openRouter.createChatCompletion({
                 model: model,
                 messages: chatMessages,
@@ -162,23 +457,95 @@ document.addEventListener('DOMContentLoaded', function() {
                 max_tokens: maxTokens
             });
             
+            // Calculate latency
+            const latencyMs = Date.now() - requestStartTime;
+            
             // Remove loading indicator
-            messagesContainer.removeChild(loadingDiv);
+            const loadingElement = document.getElementById(loadingId);
+            if (loadingElement) {
+                messagesContainer.removeChild(loadingElement);
+            }
             
-            // Add assistant response
-            const assistantMessage = response.choices[0].message;
-            chatMessages.push(assistantMessage);
-            
-            // Update chat UI
-            updateChatUI('chat-messages', chatMessages);
+            // Process and validate response
+            if (response && response.choices && response.choices.length > 0) {
+                // Add assistant response
+                const assistantMessage = response.choices[0].message;
+                chatMessages.push(assistantMessage);
+                
+                // Update chat UI
+                updateChatUI('chat-messages', chatMessages);
+                
+                // Update status with usage information if available
+                if (response.usage) {
+                    const { prompt_tokens, completion_tokens, total_tokens } = response.usage;
+                    if (statusContainer) {
+                        statusContainer.innerHTML = `<span class="status-info">Model: ${model}, Latency: ${latencyMs}ms, Tokens: ${prompt_tokens}+${completion_tokens}=${total_tokens}</span>`;
+                    }
+                }
+            } else {
+                throw new Error('Received empty response from API');
+            }
             
         } catch (error) {
             console.error('Chat completion error:', error);
-            alert(`Error: ${error.message || 'Failed to get response'}`);
+            
+            // Clean up any remaining loading indicators
+            const loadingElements = document.querySelectorAll('.loading-container');
+            loadingElements.forEach(el => el.remove());
+            
+            // Add error message to chat instead of alert
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'message-container error-container';
+            
+            // Provide more specific error messages based on error type
+            let errorMessage = 'Failed to get a response from the AI';
+            let errorTitle = 'API Error';
+            
+            if (error.status === 401) {
+                errorTitle = 'Authentication Error';
+                errorMessage = 'API key is invalid or expired. Please check your API key.';
+            } else if (error.status === 403) {
+                errorTitle = 'Permission Error';
+                errorMessage = 'The API key does not have permission to access this resource.';
+            } else if (error.status === 404) {
+                errorTitle = 'Model Not Found';
+                errorMessage = 'The requested model was not found. Please select a different model.';
+            } else if (error.status === 429) {
+                errorTitle = 'Rate Limit Error';
+                errorMessage = 'Rate limit exceeded. Please try again in a moment.';
+            } else if (error.message && error.message.includes('timeout')) {
+                errorTitle = 'Timeout Error';
+                errorMessage = 'Request timed out. The model might be busy, please try again.';
+            } else if (error.message && error.message.includes('network')) {
+                errorTitle = 'Network Error';
+                errorMessage = 'Network connection error. Please check your internet connection.';
+            } else if (error.message) {
+                errorMessage = error.message;
+            }
+            
+            // Log for debugging
+            console.warn(`${errorTitle}: ${errorMessage}`);
+            
+            errorDiv.innerHTML = `
+                <div class="message-header error-header">${errorTitle}</div>
+                <div class="message error-message">${errorMessage}</div>
+            `;
+            
+            messagesContainer.appendChild(errorDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            
+            // Also update the status container with the error
+            const statusContainer = document.getElementById('chat-status');
+            if (statusContainer) {
+                statusContainer.innerHTML = `<span class="status-error">${errorTitle}: ${errorMessage}</span>`;
+            }
         }
     }
 
-    // Streaming Chat
+    /**
+     * Streaming Chat Functionality
+     * Handles sending chat messages to the API with streaming response
+     */
     document.getElementById('stream-send').addEventListener('click', sendStreamMessage);
     document.getElementById('stream-input').addEventListener('keydown', function(e) {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -187,12 +554,18 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    /**
+     * Send a chat message with streaming response
+     * Includes improved error handling and UI feedback for token-by-token streaming
+     */
     async function sendStreamMessage() {
+        // Verify SDK initialization
         if (!openRouter) {
-            alert('Please set your OpenRouter API key first');
+            showError('SDK Error', 'Please set your OpenRouter API key first');
             return;
         }
 
+        // Validate input
         const streamInput = document.getElementById('stream-input');
         const userMessage = streamInput.value.trim();
         
@@ -201,10 +574,27 @@ document.addEventListener('DOMContentLoaded', function() {
         // Clear input
         streamInput.value = '';
         
-        // Get stream settings
+        // Get stream settings with validation
         const model = document.getElementById('stream-model').value;
-        const temperature = parseFloat(document.getElementById('stream-temperature').value);
-        const maxTokens = parseInt(document.getElementById('stream-max-tokens').value);
+        let temperature = 0.7; // Default
+        let maxTokens = 1000; // Default
+        
+        try {
+            temperature = parseFloat(document.getElementById('stream-temperature').value);
+            if (isNaN(temperature) || temperature < 0 || temperature > 2) {
+                temperature = 0.7; // Reset to default if invalid
+                console.warn('Invalid temperature value for streaming, using default of 0.7');
+            }
+            
+            maxTokens = parseInt(document.getElementById('stream-max-tokens').value);
+            if (isNaN(maxTokens) || maxTokens < 1) {
+                maxTokens = 1000; // Reset to default if invalid
+                console.warn('Invalid max_tokens value for streaming, using default of 1000');
+            }
+        } catch (e) {
+            console.warn('Error parsing streaming parameters, using defaults:', e);
+        }
+        
         const systemMessage = document.getElementById('stream-system-message').value.trim();
         
         // Add system message if provided and not already added
@@ -218,53 +608,163 @@ document.addEventListener('DOMContentLoaded', function() {
         // Update stream UI
         updateChatUI('stream-messages', streamMessages);
         
+        // Track request start time for latency calculation
+        const requestStartTime = Date.now();
+        
+        // Add status display
+        const statusContainer = document.getElementById('stream-status') || document.createElement('div');
+        if (statusContainer) {
+            statusContainer.innerHTML = `<span class="status-info">Requesting stream: ${model}, temp: ${temperature}</span>`;
+        }
+        
         try {
-            // Create streaming response container
+            // Get container and prepare for streaming
             const messagesContainer = document.getElementById('stream-messages');
-            const streamContainer = document.createElement('div');
-            streamContainer.className = 'message-container';
-            streamContainer.innerHTML = '<div class="message-header assistant-header">Assistant</div><div class="message assistant-message" id="current-stream"></div>';
-            messagesContainer.appendChild(streamContainer);
             
-            const streamElement = document.getElementById('current-stream');
-            let streamContent = '';
-            
-            // Stream response from OpenRouter
-            for await (const chunk of openRouter.streamChatCompletions({
-                model: model,
-                messages: streamMessages,
-                temperature: temperature,
-                max_tokens: maxTokens
-            })) {
-                const content = chunk.choices?.[0]?.delta?.content || '';
-                if (content) {
-                    streamContent += content;
-                    streamElement.textContent = streamContent;
-                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                }
+            // Validate messagesContainer exists
+            if (!messagesContainer) {
+                console.error('Stream messages container not found');
+                return;
             }
             
-            // Add completed message to messages array
-            streamMessages.push({ role: 'assistant', content: streamContent });
+            // Create unique streaming container for this message
+            const streamId = 'stream-' + Date.now();
+            const streamContainer = document.createElement('div');
+            streamContainer.className = 'message-container';
+            streamContainer.innerHTML = `
+                <div class="message-header assistant-header">Assistant</div>
+                <div class="message assistant-message" id="${streamId}"></div>
+            `;
+            messagesContainer.appendChild(streamContainer);
+            const streamElement = document.getElementById(streamId);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
             
-            // Remove stream element ID to prevent duplicates
-            streamElement.removeAttribute('id');
+            // Initialize streaming variables
+            let streamContent = '';
+            let tokenCount = 0;
+            let streamStarted = false;
+            let streamingLatency = 0;
+            
+            // Add initial typing indicator
+            streamElement.innerHTML = '<div class="typing-indicator"><span></span><span></span><span></span></div>';
+            
+            // Start streaming with error handling
+            try {
+                for await (const chunk of openRouter.streamChatCompletions({
+                    model: model,
+                    messages: streamMessages,
+                    temperature: temperature,
+                    max_tokens: maxTokens
+                })) {
+                    // Record time to first token
+                    if (!streamStarted) {
+                        streamStarted = true;
+                        streamingLatency = Date.now() - requestStartTime;
+                        // Update status with the latency time
+                        if (statusContainer) {
+                            statusContainer.innerHTML = `<span class="status-info">Streaming: ${model}, First token: ${streamingLatency}ms</span>`;
+                        }
+                    }
+                    
+                    const content = chunk.choices?.[0]?.delta?.content || '';
+                    if (content) {
+                        // Remove typing indicator on first real content
+                        if (streamContent === '') {
+                            streamElement.innerHTML = '';
+                        }
+                        
+                        streamContent += content;
+                        tokenCount++;
+                        
+                        // Apply formatting to the content
+                        streamElement.textContent = streamContent;
+                        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                        
+                        // Periodically update token count in status
+                        if (tokenCount % 10 === 0 && statusContainer) {
+                            statusContainer.innerHTML = `<span class="status-info">Streaming: ${model}, Tokens: ${tokenCount}</span>`;
+                        }
+                    }
+                }
+                
+                // Add message to history once complete
+                streamMessages.push({ role: 'assistant', content: streamContent });
+                
+                // Update final status
+                if (statusContainer) {
+                    statusContainer.innerHTML = `<span class="status-info">Complete: ${model}, Tokens: ${tokenCount}, Latency: ${streamingLatency}ms</span>`;
+                }
+                
+                // Remove stream ID to prevent overwriting
+                streamElement.removeAttribute('id');
+                
+            } catch (streamError) {
+                console.error('Stream processing error:', streamError);
+                // Display error in the stream output instead of removing it
+                streamElement.innerHTML = `<div class="error-message">Error during streaming: ${streamError.message || 'Connection error'}</div>`;
+                throw streamError; // Re-throw to be caught by outer handler
+            }
             
         } catch (error) {
-            console.error('Stream chat error:', error);
-            alert(`Error: ${error.message || 'Failed to get streaming response'}`);
+            console.error('Stream setup error:', error);
+            
+            // Display error in the stream container
+            const messagesContainer = document.getElementById('stream-messages');
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'message-container error-container';
+            
+            // Provide more specific error messages based on error type
+            let errorMessage = 'Failed to stream response';
+            
+            if (error.status === 401) {
+                errorMessage = 'API key is invalid or expired. Please check your API key.';
+            } else if (error.status === 429) {
+                errorMessage = 'Rate limit exceeded. Please try again in a moment.';
+            } else if (error.message && error.message.includes('timeout')) {
+                errorMessage = 'Stream request timed out. The model might be busy, please try again.';
+            } else if (error.message) {
+                errorMessage = error.message;
+            }
+            
+            errorDiv.innerHTML = `
+                <div class="message-header error-header">Error</div>
+                <div class="message error-message">${errorMessage}</div>
+            `;
+            
+            messagesContainer.appendChild(errorDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            
+            // Update status with error
+            if (statusContainer) {
+                statusContainer.innerHTML = `<span class="status-error">Streaming failed: ${errorMessage}</span>`;
+            }
         }
     }
 
     // Update chat UI
-    function updateChatUI(containerId, messages) {
+    /**
+     * Update chat UI with formatted messages
+     * @param {string} containerId - ID of the container element
+     * @param {Array} messages - Array of message objects
+     * @param {boolean} [formatMarkdown=true] - Whether to format assistant messages with markdown
+     */
+    function updateChatUI(containerId, messages, formatMarkdown = true) {
         const container = document.getElementById(containerId);
+        if (!container) {
+            console.error(`Container not found: ${containerId}`);
+            return;
+        }
         
         // Clear container
         container.innerHTML = '';
         
         // Add messages
         messages.forEach(message => {
+            if (!message || !message.role || !message.content) {
+                console.warn('Invalid message format', message);
+                return;
+            }
+            
             if (message.role === 'system') {
                 const systemDiv = document.createElement('div');
                 systemDiv.className = 'system-message';
@@ -280,7 +780,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 const messageDiv = document.createElement('div');
                 messageDiv.className = `message ${message.role}-message`;
-                messageDiv.textContent = message.content;
+                
+                // Apply markdown formatting for assistant messages if enabled
+                if (formatMarkdown && message.role === 'assistant') {
+                    messageDiv.innerHTML = formatMessageContent(message.content);
+                } else {
+                    messageDiv.textContent = message.content;
+                }
                 
                 messageContainer.appendChild(header);
                 messageContainer.appendChild(messageDiv);
@@ -291,11 +797,53 @@ document.addEventListener('DOMContentLoaded', function() {
         // Scroll to bottom
         container.scrollTop = container.scrollHeight;
     }
+    
+    /**
+     * Format message content with markdown-like syntax
+     * @param {string} content - Raw message content
+     * @returns {string} - HTML formatted content
+     */
+    function formatMessageContent(content) {
+        if (!content) return '';
+        
+        // Safety check
+        if (typeof content !== 'string') {
+            return String(content);
+        }
+        
+        let formatted = content;
+        
+        // Format code blocks - ```code```
+        formatted = formatted.replace(/```([\s\S]*?)```/g, (match, codeContent) => {
+            return `<pre class="code-block"><code>${escapeHtml(codeContent.trim())}</code></pre>`;
+        });
+        
+        // Format inline code - `code`
+        formatted = formatted.replace(/`([^`]+)`/g, (match, codeContent) => {
+            return `<code class="inline-code">${escapeHtml(codeContent)}</code>`;
+        });
+        
+        // Convert line breaks to <br>
+        formatted = formatted.replace(/\n/g, '<br>');
+        
+        return formatted;
+    }
+    
+    /**
+     * Escape HTML to prevent XSS
+     * @param {string} html - String that may contain HTML
+     * @returns {string} - Escaped string
+     */
+    function escapeHtml(html) {
+        const div = document.createElement('div');
+        div.textContent = html;
+        return div.innerHTML;
+    }
 
     // Embeddings
     document.getElementById('embedding-generate').addEventListener('click', async function() {
         if (!openRouter) {
-            alert('Please set your OpenRouter API key first');
+            showError('SDK Error', 'Please set your OpenRouter API key first');
             return;
         }
 
@@ -407,7 +955,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Function Calling
     document.getElementById('function-call').addEventListener('click', async function() {
         if (!openRouter) {
-            alert('Please set your OpenRouter API key first');
+            showError('SDK Error', 'Please set your OpenRouter API key first');
             return;
         }
 
@@ -485,7 +1033,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Vector DB operations
     document.getElementById('vectordb-execute').addEventListener('click', async function() {
         if (!openRouter) {
-            alert('Please set your OpenRouter API key first');
+            showError('SDK Error', 'Please set your OpenRouter API key first');
             return;
         }
 
@@ -611,7 +1159,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Knowledge Agents
     document.getElementById('add-agent-knowledge').addEventListener('click', async function() {
         if (!openRouter) {
-            alert('Please set your OpenRouter API key first');
+            showError('SDK Error', 'Please set your OpenRouter API key first');
             return;
         }
 
@@ -724,7 +1272,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     document.getElementById('run-knowledge-workflow').addEventListener('click', async function() {
         if (!openRouter) {
-            alert('Please set your OpenRouter API key first');
+            showError('SDK Error', 'Please set your OpenRouter API key first');
             return;
         }
 
@@ -805,7 +1353,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Agent Orchestration
     document.getElementById('agent-run').addEventListener('click', async function() {
         if (!openRouter) {
-            alert('Please set your OpenRouter API key first');
+            showError('SDK Error', 'Please set your OpenRouter API key first');
             return;
         }
 

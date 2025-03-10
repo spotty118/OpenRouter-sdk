@@ -2,6 +2,8 @@
  * Chat Routes
  * 
  * API endpoints for chat completions and streaming.
+ * This module provides RESTful API routes that connect to the OpenRouter core SDK
+ * for handling chat completions in both regular and streaming modes.
  */
 
 import express from 'express';
@@ -11,12 +13,18 @@ import { OpenRouter } from '../../core/open-router.js';
 import { Logger } from '../../utils/logger.js';
 import { OpenRouterError } from '../../errors/openrouter-error.js';
 import { Errors } from '../../utils/enhanced-error.js';
-import { CompletionRequest, ChatMessage, CompletionResponse } from '../../interfaces/index.js';
+import { CompletionRequest, ChatMessage } from '../../interfaces/index.js';
 import { validate, ValidateLocation, CommonSchemas } from '../middleware/validation.js';
 
 const router = express.Router();
 const logger = new Logger('info');
-// Create a single instance of OpenRouter to reuse across routes
+
+/**
+ * Factory function to create an OpenRouter instance with the provided API key
+ * This ensures each request gets a fresh instance with the correct API key
+ * @param apiKey - The OpenRouter API key to use for authentication
+ * @returns A configured OpenRouter instance
+ */
 const getOpenRouter = (apiKey: string) => new OpenRouter({ apiKey });
 
 // Validation schema for chat completion requests
@@ -46,6 +54,9 @@ const chatCompletionSchema = {
 
 /**
  * Create a chat completion
+ * 
+ * Handles non-streaming chat completion requests, connecting the API endpoint
+ * to the core OpenRouter SDK functionality.
  * 
  * POST /api/v1/chat/completions
  */
@@ -90,6 +101,9 @@ router.post('/completions', validate([chatCompletionSchema]), async (req: Reques
 
 /**
  * Stream chat completions
+ * 
+ * Handles streaming chat completion requests, setting up a server-sent events (SSE)
+ * connection that streams tokens from the OpenRouter API as they're generated.
  * 
  * POST /api/v1/chat/completions/stream
  */

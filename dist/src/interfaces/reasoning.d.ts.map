@@ -1,1 +1,0 @@
-{"version":3,"file":"reasoning.d.ts","sourceRoot":"","sources":["../../../src/interfaces/reasoning.ts"],"names":[],"mappings":"AAAA;;GAEG;AAEH;;;GAGG;AACH,MAAM,WAAW,eAAe;IAC9B;;;;;OAKG;IACH,MAAM,CAAC,EAAE,MAAM,GAAG,QAAQ,GAAG,KAAK,CAAC;IAEnC;;;OAGG;IACH,UAAU,CAAC,EAAE,MAAM,CAAC;IAEpB;;;;OAIG;IACH,OAAO,CAAC,EAAE,OAAO,CAAC;CACnB"}

@@ -1,16 +1,13 @@
 /**
  * Endpoint Router for routing requests to different API endpoints
- * 
- * This provides a flexible way to route requests to different endpoints
- * based on configuration, allowing for easy switching between providers
- * or custom endpoints with minimal code changes.
  */
 
 import { 
   CompletionRequest,
   EmbeddingRequest,
   ImageGenerationRequest,
-  AudioTranscriptionRequest
+  AudioTranscriptionRequest,
+  validateCompletionRequest
 } from '../interfaces/requests.js';
 import {
   CompletionResponse,
@@ -24,44 +21,19 @@ import { OpenRouter } from './open-router.js';
 import { Provider, ProviderType } from '../interfaces/provider.js';
 import { ProviderManager } from '../utils/provider-manager.js';
 import { ProviderIntegration } from '../utils/provider-integration.js';
+import { RateLimiter } from '../utils/rate-limiter.js';
+import { ValidationError } from '../errors/validation-error.js';
 
 /**
  * Endpoint configuration options
  */
 export interface EndpointConfig {
-  /**
-   * Base URL for the API endpoint
-   */
   baseUrl: string;
-  
-  /**
-   * API key for authentication
-   */
   apiKey: string;
-  
-  /**
-   * Optional organization ID (for services like OpenAI that use it)
-   */
   organizationId?: string;
-  
-  /**
-   * Optional extra headers to include in requests
-   */
   headers?: Record<string, string>;
-  
-  /**
-   * Endpoint type/format (determines how to format requests)
-   */
   type: 'openai' | 'openrouter' | 'anthropic' | 'gemini' | 'vertex' | 'custom';
-  
-  /**
-   * Optional custom request transformer for 'custom' type endpoints
-   */
   requestTransformer?: (request: any, endpoint: string, headers: Record<string, string>) => any;
-  
-  /**
-   * Optional custom response transformer for 'custom' type endpoints
-   */
   responseTransformer?: (response: any) => any;
 }
 
@@ -69,29 +41,10 @@ export interface EndpointConfig {
  * Endpoint Router configuration
  */
 export interface EndpointRouterConfig {
-  /**
-   * Default endpoint ID to use when no specific endpoint is requested
-   */
   defaultEndpointId: string;
-  
-  /**
-   * Map of endpoint IDs to endpoint configurations
-   */
   endpoints: Record<string, EndpointConfig>;
-  
-  /**
-   * Optional provider manager for native provider integrations
-   */
   providerManager?: ProviderManager;
-  
-  /**
-   * Flag to enable direct provider integration (default: true)
-   */
   enableDirectProviders?: boolean;
-  
-  /**
-   * Log level
-   */
   logLevel?: 'none' | 'error' | 'warn' | 'info' | 'debug';
 }
 
@@ -99,25 +52,21 @@ export interface EndpointRouterConfig {
  * Router options for routing specific requests
  */
 export interface RoutingOptions {
-  /**
-   * Specific endpoint ID to use for this request
-   */
   endpointId?: string;
-  
-  /**
-   * Whether to use a direct provider if available
-   */
   useDirectProvider?: boolean;
-  
-  /**
-   * Maximum number of retries
-   */
   maxRetries?: number;
-  
-  /**
-   * Timeout in milliseconds
-   */
   timeout?: number;
+}
+
+/**
+ * Request tracking interface
+ */
+interface TrackedRequest {
+  id: string;
+  controller: AbortController;
+  timestamp: number;
+  endpoint: string;
+  cleanup: () => void;
 }
 
 /**
@@ -127,12 +76,11 @@ export class EndpointRouter {
   private config: EndpointRouterConfig;
   private logger: Logger;
   private providerIntegration: ProviderIntegration | null = null;
-  
-  /**
-   * Create a new Endpoint Router
-   * 
-   * @param config Router configuration
-   */
+  private rateLimiter: RateLimiter;
+  private requestsInFlight: Map<string, TrackedRequest> = new Map();
+  private requestTimeout: number = 30000; // Default 30s timeout
+  private cleanupInterval: NodeJS.Timeout;
+
   constructor(config: EndpointRouterConfig) {
     this.config = {
       ...config,
@@ -140,25 +88,74 @@ export class EndpointRouter {
     };
     
     this.logger = new Logger(config.logLevel || 'info');
+    this.rateLimiter = new RateLimiter(60); // Default 60 requests per minute
     
-    // Set up provider integration if provider manager is provided
     if (this.config.providerManager && this.config.enableDirectProviders) {
       this.providerIntegration = new ProviderIntegration(
         this.config.providerManager,
         config.logLevel || 'info',
-        true // enable direct integration
+        true
       );
     }
     
+    this.cleanupInterval = setInterval(() => this.cleanupStaleRequests(), 60000);
     this.logger.info('Endpoint Router initialized with endpoints:', Object.keys(config.endpoints));
   }
-  
-  /**
-   * Get an endpoint configuration by ID
-   * 
-   * @param endpointId Endpoint ID
-   * @returns Endpoint configuration
-   */
+
+  public dispose(): void {
+    clearInterval(this.cleanupInterval);
+    this.cancelAllRequests();
+  }
+
+  private cleanupStaleRequests(): void {
+    const now = Date.now();
+    for (const [id, request] of this.requestsInFlight.entries()) {
+      if (now - request.timestamp > this.requestTimeout) {
+        this.logger.warn(`Request ${id} exceeded timeout, cleaning up`);
+        request.controller.abort();
+        request.cleanup();
+        this.requestsInFlight.delete(id);
+      }
+    }
+  }
+
+  private trackRequest(endpoint: string): TrackedRequest {
+    const id = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const controller = new AbortController();
+    
+    const request: TrackedRequest = {
+      id,
+      controller,
+      timestamp: Date.now(),
+      endpoint,
+      cleanup: () => {
+        try {
+          controller.abort();
+        } catch (error) {
+          this.logger.error(`Error cleaning up request ${id}:`, error);
+        }
+      }
+    };
+    
+    this.requestsInFlight.set(id, request);
+    return request;
+  }
+
+  private cleanupRequest(id: string): void {
+    const request = this.requestsInFlight.get(id);
+    if (request) {
+      request.cleanup();
+      this.requestsInFlight.delete(id);
+    }
+  }
+
+  public cancelAllRequests(): void {
+    for (const [id, request] of this.requestsInFlight.entries()) {
+      request.cleanup();
+      this.requestsInFlight.delete(id);
+    }
+  }
+
   private getEndpoint(endpointId?: string): EndpointConfig {
     const id = endpointId || this.config.defaultEndpointId;
     const endpoint = this.config.endpoints[id];
@@ -173,339 +170,95 @@ export class EndpointRouter {
     
     return endpoint;
   }
-  
-  /**
-   * Build headers for a request to an endpoint
-   * 
-   * @param endpoint Endpoint configuration
-   * @returns Headers object
-   */
+
   private buildHeaders(endpoint: EndpointConfig): Record<string, string> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       ...endpoint.headers
     };
     
-    // Add authorization header based on endpoint type
     switch (endpoint.type) {
       case 'openai':
       case 'openrouter':
         headers['Authorization'] = `Bearer ${endpoint.apiKey}`;
-        
         if (endpoint.organizationId) {
           headers['OpenAI-Organization'] = endpoint.organizationId;
         }
         break;
-        
       case 'anthropic':
         headers['x-api-key'] = endpoint.apiKey;
-        headers['anthropic-version'] = '2023-06-01'; // Use latest API version as default
+        headers['anthropic-version'] = '2023-06-01';
         break;
-        
-      case 'gemini':
-        // Gemini uses API key as a query parameter instead of a header
-        break;
-        
       case 'vertex':
         headers['Authorization'] = `Bearer ${endpoint.apiKey}`;
         break;
-        
       case 'custom':
-        // Custom endpoints should provide their own headers
         if (endpoint.apiKey) {
-          headers['Authorization'] = `Bearer ${endpoint.apiKey}`; // Default to Bearer auth
+          headers['Authorization'] = `Bearer ${endpoint.apiKey}`;
         }
         break;
     }
     
     return headers;
   }
-  
-  /**
-   * Route a chat completion request to the appropriate endpoint
-   * 
-   * @param request Completion request
-   * @param options Routing options
-   * @returns Promise resolving to completion response
-   */
-  async createChatCompletion(
-    request: CompletionRequest,
-    options: RoutingOptions = {}
-  ): Promise<CompletionResponse> {
-    // Try direct provider integration first if enabled
-    if (
-      (options.useDirectProvider !== false) &&
-      this.config.enableDirectProviders &&
-      this.providerIntegration
-    ) {
-      try {
-        const directResponse = await this.providerIntegration.tryChatCompletion(request);
-        if (directResponse) {
-          this.logger.info(`Used direct provider for model: ${request.model}`);
-          return directResponse;
-        }
-      } catch (error) {
-        this.logger.warn(`Direct provider failed, falling back to endpoint:`, error);
-      }
-    }
-    
-    // Fall back to endpoint routing
-    const endpoint = this.getEndpoint(options.endpointId);
-    const headers = this.buildHeaders(endpoint);
-    const url = `${endpoint.baseUrl}/chat/completions`;
-    
-    // Prepare request payload based on endpoint type
-    let payload: any;
-    
-    switch (endpoint.type) {
+
+  private async transformRequest(request: CompletionRequest, type: EndpointConfig['type']): Promise<any> {
+    switch (type) {
       case 'openai':
       case 'openrouter':
-        // OpenAI and OpenRouter share the same format
-        payload = { ...request };
-        break;
-        
+        return request;
       case 'anthropic':
-        payload = this.transformToAnthropic(request);
-        break;
-        
+        return this.transformToAnthropic(request);
       case 'gemini':
-        payload = this.transformToGemini(request);
-        break;
-        
+        return this.transformToGemini(request);
       case 'vertex':
-        payload = this.transformToVertex(request);
-        break;
-        
-      case 'custom':
-        if (endpoint.requestTransformer) {
-          payload = endpoint.requestTransformer(request, url, headers);
-        } else {
-          payload = { ...request };
-        }
-        break;
-    }
-    
-    // Make the request
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(options.timeout || 30000)
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new OpenRouterError(
-          `Endpoint request failed with status ${response.status}`,
-          response.status,
-          errorData
-        );
-      }
-      
-      let result = await response.json();
-      
-      // Transform the response if needed
-      if (endpoint.type === 'custom' && endpoint.responseTransformer) {
-        result = endpoint.responseTransformer(result);
-      } else if (endpoint.type === 'anthropic') {
-        result = this.transformFromAnthropic(result);
-      } else if (endpoint.type === 'gemini') {
-        result = this.transformFromGemini(result);
-      } else if (endpoint.type === 'vertex') {
-        result = this.transformFromVertex(result);
-      }
-      
-      return result;
-    } catch (error) {
-      if (error instanceof OpenRouterError) {
-        throw error;
-      }
-      
-      throw new OpenRouterError(
-        `Error calling endpoint: ${error instanceof Error ? error.message : String(error)}`,
-        500,
-        null
-      );
+        return this.transformToVertex(request);
+      default:
+        return request;
     }
   }
-  
-  /**
-   * Route a streaming chat completion request to the appropriate endpoint
-   * 
-   * @param request Completion request
-   * @param options Routing options
-   * @returns Async generator yielding completion response chunks
-   */
-  async *streamChatCompletions(
-    request: CompletionRequest,
-    options: RoutingOptions = {}
-  ): AsyncGenerator<Partial<CompletionResponse>, void, unknown> {
-    // Try direct provider integration first if enabled
-    if (
-      (options.useDirectProvider !== false) &&
-      this.config.enableDirectProviders &&
-      this.providerIntegration
-    ) {
-      try {
-        const provider = this.providerIntegration.findProviderForModel(request.model);
-        if (provider) {
-          this.logger.info(`Using direct provider for streaming model: ${request.model}`);
-          yield* provider.streamChatCompletions(request);
-          return;
-        }
-      } catch (error) {
-        this.logger.warn(`Direct provider streaming failed, falling back to endpoint:`, error);
-      }
-    }
-    
-    // Fall back to endpoint routing
-    const endpoint = this.getEndpoint(options.endpointId);
-    const headers = this.buildHeaders(endpoint);
-    const url = `${endpoint.baseUrl}/chat/completions`;
-    
-    // Prepare request payload based on endpoint type
-    let payload: any;
-    
-    switch (endpoint.type) {
+
+  private async transformResponse(response: any, type: EndpointConfig['type']): Promise<CompletionResponse> {
+    switch (type) {
       case 'openai':
       case 'openrouter':
-        // OpenAI and OpenRouter share the same format
-        payload = {
-          ...request,
-          stream: true
-        };
-        break;
-        
+        return response;
       case 'anthropic':
-        payload = {
-          ...this.transformToAnthropic(request),
-          stream: true
-        };
-        break;
-        
+        return this.transformFromAnthropic(response);
       case 'gemini':
-        payload = {
-          ...this.transformToGemini(request),
-          stream: true
-        };
-        break;
-        
+        return this.transformFromGemini(response);
       case 'vertex':
-        payload = {
-          ...this.transformToVertex(request),
-          stream: true
-        };
-        break;
-        
-      case 'custom':
-        if (endpoint.requestTransformer) {
-          payload = endpoint.requestTransformer({
-            ...request,
-            stream: true
-          }, url, headers);
-        } else {
-          payload = {
-            ...request,
-            stream: true
-          };
-        }
-        break;
-    }
-    
-    // Make the streaming request
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(options.timeout || 60000)
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new OpenRouterError(
-          `Endpoint streaming request failed with status ${response.status}`,
-          response.status,
-          errorData
-        );
-      }
-      
-      const reader = response.body?.getReader();
-      if (!reader) {
-        throw new OpenRouterError('Response body is not readable', 0, null);
-      }
-      
-      const decoder = new TextDecoder();
-      let buffer = '';
-      
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        
-        buffer = lines.pop() || '';
-        
-        for (const line of lines) {
-          if (!line.trim() || line === 'data: [DONE]') continue;
-          
-          if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.slice(6));
-              
-              // Transform if needed based on endpoint type
-              let transformedData: any = data;
-              
-              if (endpoint.type === 'custom' && endpoint.responseTransformer) {
-                transformedData = endpoint.responseTransformer(data);
-              } else if (endpoint.type === 'anthropic') {
-                transformedData = this.transformStreamFromAnthropic(data);
-              } else if (endpoint.type === 'gemini') {
-                transformedData = this.transformStreamFromGemini(data);
-              } else if (endpoint.type === 'vertex') {
-                transformedData = this.transformStreamFromVertex(data);
-              }
-              
-              yield transformedData;
-            } catch (e) {
-              this.logger.warn('Failed to parse stream data:', line);
-            }
-          }
-        }
-      }
-    } catch (error) {
-      if (error instanceof OpenRouterError) {
-        throw error;
-      }
-      
-      throw new OpenRouterError(
-        `Error streaming from endpoint: ${error instanceof Error ? error.message : String(error)}`,
-        500,
-        null
-      );
+        return this.transformFromVertex(response);
+      default:
+        return response;
     }
   }
-  
-  // Transformation methods for different endpoint types
-  
-  /**
-   * Transform OpenRouter format to Anthropic format
-   */
+
+  private async transformStreamResponse(data: any, type: EndpointConfig['type']): Promise<Partial<CompletionResponse>> {
+    switch (type) {
+      case 'openai':
+      case 'openrouter':
+        return data;
+      case 'anthropic':
+        return this.transformStreamFromAnthropic(data);
+      case 'gemini':
+        return this.transformStreamFromGemini(data);
+      case 'vertex':
+        return this.transformStreamFromVertex(data);
+      default:
+        return data;
+    }
+  }
+
   private transformToAnthropic(request: CompletionRequest): any {
-    // Extract system prompt if present
     let systemPrompt: string | undefined;
     let messages = [...request.messages];
     
     if (messages.length > 0 && messages[0].role === 'system') {
       const systemMessage = messages[0];
-      if (typeof systemMessage.content === 'string') {
-        systemPrompt = systemMessage.content;
-      } else {
-        systemPrompt = JSON.stringify(systemMessage.content);
-      }
-      
+      systemPrompt = typeof systemMessage.content === 'string' 
+        ? systemMessage.content 
+        : JSON.stringify(systemMessage.content);
       messages = messages.slice(1);
     }
     
@@ -522,12 +275,8 @@ export class EndpointRouter {
       stop_sequences: request.additional_stop_sequences
     };
   }
-  
-  /**
-   * Transform Anthropic response to OpenRouter format
-   */
+
   private transformFromAnthropic(response: any): CompletionResponse {
-    // Extract text content from response
     const content = response.content || [];
     let responseText = '';
     
@@ -537,7 +286,6 @@ export class EndpointRouter {
       }
     }
     
-    // Estimate token count
     const promptTokens = response.usage?.input_tokens || 0;
     const completionTokens = response.usage?.output_tokens || 0;
     
@@ -561,14 +309,9 @@ export class EndpointRouter {
       }
     };
   }
-  
-  /**
-   * Transform Anthropic streaming response to OpenRouter format
-   */
+
   private transformStreamFromAnthropic(data: any): Partial<CompletionResponse> {
     if (data.type === 'content_block_delta') {
-      const deltaText = data.delta?.text || '';
-      
       return {
         id: data.message_id || `anthropic-${Date.now()}`,
         model: 'anthropic/claude',
@@ -576,9 +319,9 @@ export class EndpointRouter {
           {
             message: {
               role: 'assistant',
-              content: deltaText
+              content: data.delta?.text || ''
             },
-              finish_reason: null as unknown as string,
+            finish_reason: null as unknown as string,
             index: 0
           }
         ]
@@ -605,14 +348,8 @@ export class EndpointRouter {
       choices: []
     };
   }
-  
-  /**
-   * Transform OpenRouter format to Gemini format
-   */
+
   private transformToGemini(request: CompletionRequest): any {
-    // Gemini has a different format - transform messages to Gemini format
-    // This is simplified - a full implementation would handle different content types
-    
     return {
       model: request.model.startsWith('google/gemini') 
         ? request.model.substring(7) 
@@ -636,12 +373,8 @@ export class EndpointRouter {
       }
     };
   }
-  
-  /**
-   * Transform Gemini response to OpenRouter format
-   */
+
   private transformFromGemini(response: any): CompletionResponse {
-    // Extract text from Gemini response
     const text = response.candidates?.[0]?.content?.parts?.[0]?.text || '';
     
     return {
@@ -665,10 +398,7 @@ export class EndpointRouter {
       }
     };
   }
-  
-  /**
-   * Transform Gemini streaming response to OpenRouter format
-   */
+
   private transformStreamFromGemini(data: any): Partial<CompletionResponse> {
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
     
@@ -687,13 +417,8 @@ export class EndpointRouter {
       ]
     };
   }
-  
-  /**
-   * Transform OpenRouter format to Vertex AI format
-   */
+
   private transformToVertex(request: CompletionRequest): any {
-    // Simplified - actual implementation would handle all the Vertex API specifics
-    
     return {
       model: request.model.startsWith('google-vertex/') 
         ? request.model.substring(14) 
@@ -717,12 +442,8 @@ export class EndpointRouter {
       }
     };
   }
-  
-  /**
-   * Transform Vertex AI response to OpenRouter format
-   */
+
   private transformFromVertex(response: any): CompletionResponse {
-    // Extract text from Vertex response
     const text = response.predictions?.[0]?.content || '';
     
     return {
@@ -746,10 +467,7 @@ export class EndpointRouter {
       }
     };
   }
-  
-  /**
-   * Transform Vertex AI streaming response to OpenRouter format
-   */
+
   private transformStreamFromVertex(data: any): Partial<CompletionResponse> {
     const text = data.predictions?.[0]?.content || '';
     
@@ -768,61 +486,218 @@ export class EndpointRouter {
       ]
     };
   }
-  
-  /**
-   * Add a new endpoint configuration
-   * 
-   * @param id Endpoint ID
-   * @param config Endpoint configuration
-   */
-  addEndpoint(id: string, config: EndpointConfig): void {
-    this.config.endpoints[id] = config;
-    this.logger.info(`Added endpoint: ${id}`);
-  }
-  
-  /**
-   * Remove an endpoint configuration
-   * 
-   * @param id Endpoint ID
-   */
-  removeEndpoint(id: string): void {
-    delete this.config.endpoints[id];
-    this.logger.info(`Removed endpoint: ${id}`);
-  }
-  
-  /**
-   * Set the default endpoint
-   * 
-   * @param id Endpoint ID
-   */
-  setDefaultEndpoint(id: string): void {
-    if (!this.config.endpoints[id]) {
-      throw new OpenRouterError(
-        `Cannot set default endpoint: ${id} not found`,
-        404,
-        null
+
+  async createChatCompletion(
+    request: CompletionRequest,
+    options: RoutingOptions = {}
+  ): Promise<CompletionResponse> {
+    try {
+      validateCompletionRequest(request);
+    } catch (error) {
+      throw new ValidationError('Invalid completion request', error);
+    }
+
+    await this.rateLimiter.throttle();
+
+    if (
+      (options.useDirectProvider !== false) &&
+      this.config.enableDirectProviders &&
+      this.providerIntegration
+    ) {
+      try {
+        const directResponse = await this.providerIntegration.tryChatCompletion(request);
+        if (directResponse) {
+          this.logger.info(`Used direct provider for model: ${request.model}`);
+          return directResponse;
+        }
+      } catch (error) {
+        this.logger.warn(`Direct provider failed, falling back to endpoint:`, error);
+      }
+    }
+
+    const endpoint = this.getEndpoint(options.endpointId);
+    const trackedRequest = this.trackRequest(endpoint.baseUrl);
+    
+    try {
+      const headers = this.buildHeaders(endpoint);
+      const url = `${endpoint.baseUrl}/chat/completions`;
+      const payload = await this.transformRequest(request, endpoint.type);
+
+      const response = await this.makeRequest(
+        url,
+        'POST',
+        payload,
+        headers,
+        trackedRequest.controller.signal,
+        options.timeout || this.requestTimeout
       );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new OpenRouterError(
+          `Endpoint request failed with status ${response.status}`,
+          response.status,
+          errorData
+        );
+      }
+
+      const result = await response.json();
+      return await this.transformResponse(result, endpoint.type);
+    } finally {
+      this.cleanupRequest(trackedRequest.id);
+    }
+  }
+
+  async *streamChatCompletions(
+    request: CompletionRequest,
+    options: RoutingOptions = {}
+  ): AsyncGenerator<Partial<CompletionResponse>, void, unknown> {
+    try {
+      validateCompletionRequest(request);
+    } catch (error) {
+      throw new ValidationError('Invalid completion request', error);
+    }
+
+    await this.rateLimiter.throttle();
+
+    if (
+      (options.useDirectProvider !== false) &&
+      this.config.enableDirectProviders &&
+      this.providerIntegration
+    ) {
+      try {
+        const provider = this.providerIntegration.findProviderForModel(request.model);
+        if (provider) {
+          this.logger.info(`Using direct provider for streaming model: ${request.model}`);
+          yield* provider.streamChatCompletions(request);
+          return;
+        }
+      } catch (error) {
+        this.logger.warn(`Direct provider streaming failed, falling back to endpoint:`, error);
+      }
+    }
+
+    const endpoint = this.getEndpoint(options.endpointId);
+    const trackedRequest = this.trackRequest(endpoint.baseUrl);
+    
+    try {
+      const headers = this.buildHeaders(endpoint);
+      const url = `${endpoint.baseUrl}/chat/completions`;
+      const payload = {
+        ...await this.transformRequest(request, endpoint.type),
+        stream: true
+      };
+
+      const response = await this.makeRequest(
+        url,
+        'POST',
+        payload,
+        headers,
+        trackedRequest.controller.signal,
+        options.timeout || 60000
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new OpenRouterError(
+          `Endpoint streaming request failed with status ${response.status}`,
+          response.status,
+          errorData
+        );
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new OpenRouterError('Response body is not readable', 0, null);
+      }
+
+      try {
+        const decoder = new TextDecoder();
+        let buffer = '';
+        
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+
+          for (const line of lines) {
+            const trimmedLine = line.trim();
+            if (!trimmedLine || trimmedLine === 'data: [DONE]') continue;
+
+            if (trimmedLine.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(trimmedLine.slice(6));
+                const transformedData = await this.transformStreamResponse(data, endpoint.type);
+                yield transformedData;
+              } catch (e) {
+                this.logger.warn('Failed to parse stream data:', trimmedLine);
+              }
+            }
+          }
+        }
+
+        // Process any remaining data in buffer
+        if (buffer.trim()) {
+          try {
+            const data = JSON.parse(buffer.trim().slice(6));
+            const transformedData = await this.transformStreamResponse(data, endpoint.type);
+            yield transformedData;
+          } catch (e) {
+            this.logger.warn('Failed to parse final stream data:', buffer);
+          }
+        }
+      } finally {
+        try {
+          await reader.cancel();
+        } catch (error) {
+          this.logger.error('Error canceling stream reader:', error);
+        }
+      }
+    } finally {
+      this.cleanupRequest(trackedRequest.id);
+    }
+  }
+
+  private async makeRequest(
+    url: string,
+    method: string,
+    body: any,
+    headers: Record<string, string>,
+    signal: AbortSignal,
+    timeout: number
+  ): Promise<Response> {
+    const timeoutController = new AbortController();
+    const timeoutId = setTimeout(() => timeoutController.abort(), timeout);
+
+    try {
+      const response = await fetch(url, {
+        method,
+        headers,
+        body: JSON.stringify(body),
+        signal: this.createCombinedSignal([signal, timeoutController.signal])
+      });
+      
+      return response;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  private createCombinedSignal(signals: AbortSignal[]): AbortSignal {
+    const controller = new AbortController();
+    
+    for (const signal of signals) {
+      if (signal.aborted) {
+        controller.abort();
+        break;
+      }
+      
+      signal.addEventListener('abort', () => controller.abort(), { once: true });
     }
     
-    this.config.defaultEndpointId = id;
-    this.logger.info(`Set default endpoint to: ${id}`);
-  }
-  
-  /**
-   * Get all available endpoint IDs
-   * 
-   * @returns Array of endpoint IDs
-   */
-  getEndpointIds(): string[] {
-    return Object.keys(this.config.endpoints);
-  }
-  
-  /**
-   * Get the default endpoint ID
-   * 
-   * @returns Default endpoint ID
-   */
-  getDefaultEndpointId(): string {
-    return this.config.defaultEndpointId;
+    return controller.signal;
   }
 }

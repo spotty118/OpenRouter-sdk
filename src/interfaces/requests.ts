@@ -1,16 +1,11 @@
-/**
- * Request type interfaces
- */
-import { ChatMessage } from './messaging.js';
-import { ToolDefinition } from './tools.js';
-import { ProviderPreferences } from './provider-routing.js';
-import { Plugin } from './plugins.js';
-import { ReasoningConfig } from './reasoning.js';
-import { ResponseFormat } from './structured-outputs.js';
+import { ValidationError } from '../errors/validation-error.js';
 
-/**
- * Chat completion request
- */
+export interface ChatMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+  name?: string;
+}
+
 export interface CompletionRequest {
   model: string;
   messages: ChatMessage[];
@@ -21,83 +16,116 @@ export interface CompletionRequest {
   stream?: boolean;
   transforms?: string[];
   additional_stop_sequences?: string[];
-  response_format?: ResponseFormat;
+  response_format?: any;
   seed?: number;
-  tools?: ToolDefinition[] | null;
-  tool_choice?: 'auto' | 'none' | { type: 'function'; function: { name: string } };
+  tools?: any[];
+  tool_choice?: any;
   frequency_penalty?: number;
   presence_penalty?: number;
-  repetition_penalty?: number;
   logit_bias?: Record<string, number>;
+  repetition_penalty?: number;
   top_logprobs?: number;
   min_p?: number;
-  user?: string;
-
-  /**
-   * Fallback models to try if the primary model is unavailable
-   * Will automatically try other models if the primary model's providers are down,
-   * rate-limited, or refuse to reply due to content moderation
-   */
   models?: string[];
-
-  /**
-   * Provider routing preferences
-   * Controls how OpenRouter routes requests to different providers
-   */
-  provider?: ProviderPreferences;
-
-  /**
-   * Plugins to use with the request
-   * Currently supports the web search plugin
-   */
-  plugins?: Plugin[];
-
-  /**
-   * Reasoning tokens configuration
-   * Controls how the model generates and returns reasoning tokens
-   */
-  reasoning?: ReasoningConfig;
-
-  /**
-   * Legacy parameter for backward compatibility
-   * @deprecated Use reasoning.exclude instead
-   */
+  provider?: any;
+  plugins?: any[];
+  reasoning?: any;
   include_reasoning?: boolean;
+  user?: string;
 }
 
-/**
- * Embedding request
- */
 export interface EmbeddingRequest {
   model: string;
   input: string | string[];
-  encoding_format?: 'float' | 'base64';
   user?: string;
 }
 
-/**
- * Image generation request
- */
 export interface ImageGenerationRequest {
   model: string;
   prompt: string;
   n?: number;
   size?: string;
-  response_format?: 'url' | 'b64_json';
-  quality?: 'standard' | 'hd';
-  style?: 'vivid' | 'natural';
+  response_format?: string;
+  quality?: string;
+  style?: string;
   user?: string;
 }
 
-/**
- * Audio transcription request
- */
 export interface AudioTranscriptionRequest {
   model: string;
-  file: Blob | ArrayBuffer | string; // Blob in browser, ArrayBuffer in Node.js, Base64 string in either
+  file: string | Blob | ArrayBuffer | Buffer;
   language?: string;
   prompt?: string;
-  response_format?: 'json' | 'text' | 'srt' | 'verbose_json' | 'vtt';
+  response_format?: string;
   temperature?: number;
-  timestamp_granularities?: Array<'segment' | 'word'>;
+  timestamp_granularities?: string[];
+}
+
+/**
+ * Validates a completion request
+ * @throws {ValidationError} if the request is invalid
+ */
+export function validateCompletionRequest(request: CompletionRequest): void {
+  const errors: string[] = [];
+
+  if (!request.model) {
+    errors.push('model is required');
+  }
+
+  if (!request.messages || !Array.isArray(request.messages) || request.messages.length === 0) {
+    errors.push('messages must be a non-empty array');
+  } else {
+    for (const [index, message] of request.messages.entries()) {
+      if (!message.role || !['system', 'user', 'assistant'].includes(message.role)) {
+        errors.push(`message[${index}].role must be 'system', 'user', or 'assistant'`);
+      }
+      if (typeof message.content !== 'string' || message.content.trim().length === 0) {
+        errors.push(`message[${index}].content must be a non-empty string`);
+      }
+    }
+  }
+
+  if (request.max_tokens !== undefined && (
+    typeof request.max_tokens !== 'number' ||
+    request.max_tokens < 1 ||
+    !Number.isInteger(request.max_tokens)
+  )) {
+    errors.push('max_tokens must be a positive integer');
+  }
+
+  if (request.temperature !== undefined && (
+    typeof request.temperature !== 'number' ||
+    request.temperature < 0 ||
+    request.temperature > 2
+  )) {
+    errors.push('temperature must be a number between 0 and 2');
+  }
+
+  if (request.top_p !== undefined && (
+    typeof request.top_p !== 'number' ||
+    request.top_p < 0 ||
+    request.top_p > 1
+  )) {
+    errors.push('top_p must be a number between 0 and 1');
+  }
+
+  if (request.frequency_penalty !== undefined && (
+    typeof request.frequency_penalty !== 'number' ||
+    request.frequency_penalty < -2 ||
+    request.frequency_penalty > 2
+  )) {
+    errors.push('frequency_penalty must be a number between -2 and 2');
+  }
+
+  if (request.presence_penalty !== undefined && (
+    typeof request.presence_penalty !== 'number' ||
+    request.presence_penalty < -2 ||
+    request.presence_penalty > 2
+  )) {
+    errors.push('presence_penalty must be a number between -2 and 2');
+  }
+
+  if (errors.length > 0) {
+    throw new ValidationError('Invalid completion request', errors);
+  }
 }
