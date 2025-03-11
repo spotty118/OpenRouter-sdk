@@ -7,7 +7,7 @@
 import express from 'express';
 import { Request, Response } from 'express';
 import { OpenRouter } from '../../core/open-router.js';
-import { ModelInfo } from '../../interfaces/index.js';
+import { ModelsResponse, ModelInfo } from '../../interfaces/index.js';
 import { OpenRouterError } from '../../errors/openrouter-error.js';
 import { Logger } from '../../utils/logger.js';
 
@@ -47,9 +47,12 @@ router.get('/capability/:capability', async (req: Request, res: Response) => {
     const modelsResponse = await openRouter.listModels();
     
     // Filter models by capability
-    const filteredModels = modelsResponse.data.filter(model => 
-      model.capabilities && model.capabilities[capability as keyof typeof model.capabilities] === true
-    );
+    const filteredModels = modelsResponse.data.filter((model: ModelInfo) => {
+      return model.capabilities && 
+        typeof model.capabilities === 'object' && 
+        capability in model.capabilities && 
+        model.capabilities[capability as keyof typeof model.capabilities] === true;
+    });
     
     // Return the response
     res.status(200).json({ models: filteredModels });

@@ -62,6 +62,25 @@ export class AnthropicProvider implements Provider {
   private maxRetries: number;
   private logger: Logger;
   private claudeVersion: string;
+  
+  // Add messages property to match the Anthropic client API expected in example files
+  public messages = {
+    create: async (params: any) => {
+      // Convert from Anthropic SDK format to our internal format
+      const adaptedRequest: CompletionRequest = {
+        model: params.model,
+        messages: params.messages || [],
+        max_tokens: params.max_tokens,
+        temperature: params.temperature,
+        top_p: params.top_p,
+        top_k: params.top_k,
+        stream: params.stream
+      };
+      
+      // Call our existing createChatCompletion method
+      return this.createChatCompletion(adaptedRequest);
+    }
+  };
 
   /**
    * Create a new Anthropic provider instance

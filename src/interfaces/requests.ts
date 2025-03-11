@@ -1,9 +1,12 @@
 import { ValidationError } from '../errors/validation-error.js';
 
+import { ContentPart } from './messaging.js';
+
 export interface ChatMessage {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
+  role: 'system' | 'user' | 'assistant' | 'tool';
+  content: string | ContentPart[];
   name?: string;
+  tool_call_id?: string;
 }
 
 export interface CompletionRequest {
@@ -37,6 +40,7 @@ export interface CompletionRequest {
 export interface EmbeddingRequest {
   model: string;
   input: string | string[];
+  encoding_format?: string; // Added for OpenAI provider compatibility
   user?: string;
 }
 

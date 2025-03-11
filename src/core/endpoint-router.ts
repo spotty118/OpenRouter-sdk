@@ -170,6 +170,49 @@ export class EndpointRouter {
     
     return endpoint;
   }
+  
+  /**
+   * Add a new endpoint configuration at runtime
+   * @param endpointId Unique identifier for the endpoint
+   * @param config Endpoint configuration
+   */
+  public addEndpoint(endpointId: string, config: EndpointConfig): void {
+    this.config.endpoints[endpointId] = config;
+    this.logger.info(`Added new endpoint: ${endpointId}`);
+  }
+  
+  /**
+   * Get the list of configured endpoint IDs
+   * @returns Array of endpoint IDs
+   */
+  public getEndpointIds(): string[] {
+    return Object.keys(this.config.endpoints);
+  }
+  
+  /**
+   * Set the default endpoint to use when no endpointId is specified
+   * @param endpointId Endpoint ID to set as default
+   */
+  public setDefaultEndpoint(endpointId: string): void {
+    if (!this.config.endpoints[endpointId]) {
+      throw new OpenRouterError(
+        `Cannot set default endpoint: ${endpointId} is not a valid endpoint ID`,
+        400,
+        null
+      );
+    }
+    
+    this.config.defaultEndpointId = endpointId;
+    this.logger.info(`Set default endpoint to: ${endpointId}`);
+  }
+  
+  /**
+   * Get the current default endpoint ID
+   * @returns Default endpoint ID
+   */
+  public getDefaultEndpointId(): string {
+    return this.config.defaultEndpointId;
+  }
 
   private buildHeaders(endpoint: EndpointConfig): Record<string, string> {
     const headers: Record<string, string> = {

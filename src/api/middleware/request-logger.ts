@@ -56,7 +56,16 @@ export const requestLogger = (req: Request, res: Response, next: NextFunction): 
     });
     
     // Call the original end method
-    return originalEnd.apply(this, args);
+    // Cast args to the expected parameter types for the end method
+    // The end method expects (chunk, encoding, callback) parameters
+    if (args.length >= 2 && typeof args[1] === 'string') {
+      // Ensure the encoding is a valid BufferEncoding type
+      const encoding = args[1] as BufferEncoding;
+      return originalEnd.apply(this, [args[0], encoding, args[2]]);
+    } else {
+      // Handle case with fewer arguments
+      return originalEnd.apply(this, args as any);
+    }
   };
 
   next();

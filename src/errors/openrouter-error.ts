@@ -22,6 +22,20 @@ export class OpenRouterError extends Error {
   }
 
   /**
+   * Status property for compatibility with existing code
+   */
+  get status(): number {
+    return this.statusCode;
+  }
+
+  /**
+   * Data property for compatibility with existing code
+   */
+  get data(): unknown {
+    return this.details;
+  }
+
+  /**
    * Convert error to JSON representation
    */
   toJSON() {

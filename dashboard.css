@@ -1,0 +1,219 @@
+/* OpenRouter SDK Dashboard Styles */
+:root {
+  --primary-color: #0066cc;
+  --secondary-color: #6c757d;
+  --success-color: #28a745;
+  --info-color: #17a2b8;
+  --warning-color: #ffc107;
+  --danger-color: #dc3545;
+  --light-color: #f8f9fa;
+  --dark-color: #343a40;
+}
+
+body {
+  background-color: #f8f9fa;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* Navbar customization */
+.navbar {
+  box-shadow: 0 2px 15px rgba(0, 0, 0, 0.1);
+}
+
+.navbar-brand {
+  font-weight: 600;
+  letter-spacing: -0.5px;
+}
+
+/* Cards */
+.card {
+  border: none;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+  border-radius: 8px;
+  transition: transform 0.2s, box-shadow 0.2s;
+  margin-bottom: 1rem;
+}
+
+.card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+}
+
+.card-header {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  background-color: #fff;
+  border-radius: 8px 8px 0 0 !important;
+}
+
+.sidebar-card {
+  position: sticky;
+  top: 1rem;
+}
+
+/* Function cards */
+.function-card {
+  cursor: pointer;
+  height: 100%;
+  transition: all 0.3s ease;
+}
+
+.function-card:hover {
+  border-color: var(--primary-color);
+}
+
+.function-card .card-body {
+  padding: 1.25rem;
+}
+
+.function-card .function-icon {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  color: white;
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.function-card .function-title {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  font-size: 1.1rem;
+}
+
+.function-card .function-description {
+  color: #6c757d;
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.function-card .function-meta {
+  font-size: 0.8rem;
+  color: #adb5bd;
+}
+
+/* Function card types */
+.function-type-research {
+  background-color: #8e44ad;
+}
+
+.function-type-analysis {
+  background-color: #2980b9;
+}
+
+.function-type-chat {
+  background-color: #16a085;
+}
+
+.function-type-automation {
+  background-color: #f39c12;
+}
+
+.function-type-learning {
+  background-color: #c0392b;
+}
+
+.function-type-default {
+  background-color: #3498db;
+}
+
+/* Loading spinner */
+.spinner-border {
+  width: 3rem;
+  height: 3rem;
+}
+
+/* Badge customizations */
+.badge {
+  padding: 0.4em 0.65em;
+  font-weight: 500;
+}
+
+/* Parameters display */
+.parameter-item {
+  border-bottom: 1px solid #f0f0f0;
+  padding: 0.75rem 0;
+}
+
+.parameter-item:last-child {
+  border-bottom: none;
+}
+
+.parameter-name {
+  font-weight: 600;
+  color: var(--dark-color);
+}
+
+.parameter-type {
+  font-size: 0.8rem;
+  padding: 0.2em 0.6em;
+  border-radius: 3px;
+  background-color: #e9ecef;
+}
+
+.parameter-required {
+  font-size: 0.75rem;
+  padding: 0.15em 0.5em;
+  border-radius: 3px;
+  background-color: #fef0f0;
+  color: #e74c3c;
+  font-weight: 600;
+}
+
+.parameter-description {
+  font-size: 0.9rem;
+  color: #6c757d;
+  margin-top: 0.5rem;
+}
+
+/* Modal customization */
+.modal-content {
+  border: none;
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+}
+
+.modal-header {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.modal-footer {
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+/* Code block styling */
+pre.code-block {
+  background-color: #f8f9fa;
+  border-radius: 6px;
+  padding: 1rem;
+  border: 1px solid #e9ecef;
+  font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.9rem;
+  margin: 1rem 0;
+  overflow-x: auto;
+}
+
+/* Toast notifications */
+.toast {
+  background-color: white;
+  border: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 768px) {
+  .sidebar-card {
+    position: static;
+  }
+  
+  .function-card {
+    margin-bottom: 1rem;
+  }
+}

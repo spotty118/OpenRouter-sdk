@@ -27,7 +27,7 @@ const PUBLIC_PATHS = [
  * @param res - Express response object
  * @param next - Express next function
  */
-export const authenticate = (req: Request, res: Response, next: NextFunction): void => {
+export const authenticate = (req: Request, res: Response, next: NextFunction): void | Response => {
   const path = req.path;
 
   // Skip authentication for public endpoints

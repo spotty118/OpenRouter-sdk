@@ -3,6 +3,12 @@
  * 
  * This script simulates the enhanced capabilities added to the SDK,
  * showing the advanced agent memory and CrewAI orchestration concepts.
+ * 
+ * NOTE: This is a demonstration that requires actual implementation of:
+ * - src/utils/agent-memory.ts
+ * - src/core/ai-orchestrator.ts
+ * - src/examples/enhanced-crew-ai-example.ts
+ * - src/utils/vector-db.ts
  */
 
 console.log('===== OpenRouter SDK Enhanced Features Demo =====');

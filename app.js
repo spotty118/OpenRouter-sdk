@@ -2,8 +2,524 @@
  * OpenRouter SDK Demo Application
  * Client-side implementation showcasing OpenRouter SDK capabilities
  */
-document.addEventListener('DOMContentLoaded', function() {
-    // Initialize variables with proper documentation
+
+/**
+ * Basic OpenRouter SDK Implementation
+ * This provides a minimal implementation of the OpenRouter SDK for the demo to function.
+ * In a real implementation, this would be imported from a proper SDK package.
+ */
+class OpenRouter {
+  // Static cache of default models for fallback
+  static DEFAULT_MODELS = [
+    { id: 'openai/gpt-3.5-turbo', provider: 'openai', name: 'GPT-3.5 Turbo' },
+    { id: 'openai/gpt-4', provider: 'openai', name: 'GPT-4' },
+    { id: 'openai/gpt-4-turbo', provider: 'openai', name: 'GPT-4 Turbo' },
+    { id: 'openai/gpt-4o', provider: 'openai', name: 'GPT-4o' },
+    { id: 'anthropic/claude-3-opus', provider: 'anthropic', name: 'Claude 3 Opus' },
+    { id: 'anthropic/claude-3-sonnet', provider: 'anthropic', name: 'Claude 3 Sonnet' },
+    { id: 'anthropic/claude-3-haiku', provider: 'anthropic', name: 'Claude 3 Haiku' },
+    { id: 'google/gemini-pro', provider: 'google', name: 'Gemini Pro' },
+    { id: 'google/gemini-1.5-pro', provider: 'google', name: 'Gemini 1.5 Pro' }
+  ];
+  
+  constructor(config) {
+    this.apiKey = config.apiKey;
+    this.defaultModel = config.defaultModel || 'openai/gpt-3.5-turbo';
+    this.maxRetries = config.maxRetries || 3;
+    this.timeout = config.timeout || 60000;
+    this.debug = config.debug || false;
+    
+    // Cache for models
+    this.modelsCache = null;
+    
+    if (this.debug) {
+      console.log('OpenRouter SDK initialized with config:', {
+        defaultModel: this.defaultModel,
+        maxRetries: this.maxRetries,
+        timeout: this.timeout
+      });
+    }
+  }
+  
+  /**
+   * List available models
+   * @returns {Promise<Object>} Response with available models
+   */
+  async listModels() {
+    try {
+      const response = await fetch('https://api.openrouter.ai/api/v1/models', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'HTTP-Referer': window.location.href,
+          'X-Title': 'OpenRouter Agent Wizard'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch models: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return {
+        data: data.data.map(model => ({
+          id: model.id,
+          provider: model.id.split('/')[0],
+          name: model.name || model.id,
+          context_length: model.context_length,
+          pricing: model.pricing,
+          description: model.description,
+          top_provider: model.top_provider,
+          capabilities: model.capabilities || []
+        })),
+        source: 'api'
+      };
+    } catch (error) {
+      console.error('Error fetching models:', error);
+      if (this.apiKey === 'demo-mode') {
+        return {
+          data: OpenRouter.DEFAULT_MODELS,
+          source: 'default'
+        };
+      }
+      throw error;
+    }
+  }
+
+  
+  /**
+   * Refresh the models cache in the background without blocking the UI
+   * @returns {Promise<void>}
+   */
+  async refreshModelsCache() {
+    try {
+      // Only make the API call if we have a real API key
+      if (!this.apiKey || this.apiKey === 'demo-mode') {
+        console.log('No API key available, not refreshing cache');
+        return;
+      }
+      
+      console.log('Refreshing models cache in background...');
+      
+      const response = await fetch('https://openrouter.ai/api/v1/models', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'HTTP-Referer': window.location.href,
+          'X-Title': 'OpenRouter SDK Demo'
+        }
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => 'No error details available');
+        console.error(`API error (${response.status}): ${errorText}`);
+        throw new Error(`Failed to refresh models: ${response.status} ${response.statusText}`);
+      }
+      
+      const modelData = await response.json();
+      
+      if (!modelData.data || !Array.isArray(modelData.data)) {
+        console.error('Invalid model data format received:', modelData);
+        throw new Error('Invalid response format from API');
+      }
+      
+      // Format and update the cache
+      this.modelsCache = modelData.data.map(model => ({
+        id: model.id,
+        provider: model.id.split('/')[0] || 'unknown',
+        name: model.name || model.id,
+        context_length: model.context_length,
+        pricing: model.pricing
+      }));
+      
+      console.log(`Successfully refreshed cache with ${this.modelsCache.length} models`);
+      
+      // Dispatch an event to notify the UI that models have been refreshed
+      if (typeof window !== 'undefined' && window.document) {
+        const event = new CustomEvent('openrouter:modelsRefreshed', { 
+          detail: { models: this.modelsCache }
+        });
+        window.document.dispatchEvent(event);
+      }
+      
+      return this.modelsCache;
+    } catch (error) {
+      console.error('Error refreshing models cache:', error);
+      // Keep using existing cache if refresh fails
+      return null;
+    }
+  }
+  
+  /**
+   * Save model preferences
+   * @param {Object} preferences - Model preferences object
+   * @returns {boolean} Success status
+   */
+  saveModelPreferences(preferences) {
+    try {
+      if (typeof localStorage === 'undefined') {
+        console.warn('localStorage not available, cannot save preferences');
+        return false;
+      }
+      
+      if (!preferences || typeof preferences !== 'object') {
+        console.error('Invalid preferences object:', preferences);
+        return false;
+      }
+      
+      console.log('Saving model preferences:', preferences);
+      localStorage.setItem('openrouter_model_preferences', JSON.stringify(preferences));
+      
+      // Verify the save was successful
+      const saved = localStorage.getItem('openrouter_model_preferences');
+      if (!saved) {
+        console.error('Verification failed: preferences were not saved');
+        return false;
+      }
+      
+      // Dispatch event to notify components that preferences have changed
+      if (typeof window !== 'undefined' && window.document) {
+        const event = new CustomEvent('openrouter:preferencesChanged', { 
+          detail: { preferences }
+        });
+        window.document.dispatchEvent(event);
+      }
+      
+      console.log('Model preferences saved successfully');
+      return true;
+    } catch (error) {
+      console.error('Failed to save model preferences:', error);
+      return false;
+    }
+  }
+  
+  /**
+   * Load model preferences
+   * @returns {Object} Saved model preferences or default preferences
+   */
+  loadModelPreferences() {
+    try {
+      if (typeof localStorage === 'undefined') {
+        console.warn('localStorage not available, returning default preferences');
+        return this.getDefaultPreferences();
+      }
+      
+      console.log('Loading model preferences from localStorage...');
+      const saved = localStorage.getItem('openrouter_model_preferences');
+      
+      if (saved) {
+        const parsedPrefs = JSON.parse(saved);
+        console.log('Loaded saved preferences:', parsedPrefs);
+        return parsedPrefs;
+      } else {
+        console.log('No saved preferences found in localStorage');
+      }
+    } catch (error) {
+      console.error('Failed to load model preferences:', error);
+    }
+    
+    return this.getDefaultPreferences();
+  }
+  
+  /**
+   * Get default model preferences
+   * @private
+   * @returns {Object} Default model preferences
+   */
+  getDefaultPreferences() {
+    const defaultPrefs = {
+      chat: 'openai/gpt-3.5-turbo',
+      researcher: 'anthropic/claude-3-opus',
+      analyst: 'openai/gpt-4o'
+    };
+    
+    console.log('Using default preferences:', defaultPrefs);
+    return defaultPrefs;
+  }
+  
+  /**
+   * Create chat completion
+   * @param {Object} params - Chat completion parameters
+   * @returns {Promise<Object>} Chat completion response
+   */
+  /**
+   * Create chat completion
+   * @param {Object} params - Chat completion parameters
+   * @returns {Promise<Object>} Chat completion response
+   */
+  async createChatCompletion(params) {
+    try {
+      const response = await fetch('https://api.openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': window.location.href,
+          'X-Title': 'OpenRouter Agent Wizard'
+        },
+        body: JSON.stringify({
+          model: params.model,
+          messages: params.messages,
+          temperature: params.temperature || 0.7,
+          max_tokens: params.maxTokens || 1000,
+          stream: false
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Chat completion failed: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error in chat completion:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Create streaming chat completion
+   * @param {Object} params - Chat completion parameters
+   * @returns {ReadableStream} Stream of completion chunks
+   */
+  async createChatCompletionStream(params) {
+    try {
+      const response = await fetch('https://api.openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': window.location.href,
+          'X-Title': 'OpenRouter Agent Wizard'
+        },
+        body: JSON.stringify({
+          model: params.model,
+          messages: params.messages,
+          temperature: params.temperature || 0.7,
+          max_tokens: params.maxTokens || 1000,
+          stream: true
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Stream creation failed: ${response.status}`);
+      }
+
+      return response.body;
+    } catch (error) {
+      console.error('Error in stream creation:', error);
+      throw error;
+    }
+  }
+  
+  /**
+   * Create embeddings
+   * @param {Object} params - Embedding parameters
+   * @returns {Promise<Object>} Embedding response
+   */
+  async createEmbeddings(params) {
+    if (this.debug) {
+      console.log('Creating embeddings with params:', params);
+    }
+    
+    // Generate mock embeddings
+    const dimensions = 1536; // Most embedding models use 1536 dimensions
+    const mockEmbeddings = Array.from({ length: dimensions }, () => (Math.random() * 2 - 1) / Math.sqrt(dimensions));
+    
+    return {
+      object: 'list',
+      data: [{
+        object: 'embedding',
+        embedding: mockEmbeddings,
+        index: 0
+      }],
+      model: params.model,
+      usage: {
+        prompt_tokens: params.input.length / 4,
+        total_tokens: params.input.length / 4
+      }
+    };
+  }
+  
+  /**
+   * Create a vector database
+   * @param {Object} params - Database creation parameters
+   * @returns {Promise<Object>} Database creation response
+   */
+  async createVectorDB(params) {
+    return {
+      id: params.id,
+      dimensions: params.dimensions,
+      metric: params.metric || 'cosine',
+      created: Date.now()
+    };
+  }
+  
+  /**
+   * Add vectors to a vector database
+   * @param {Object} params - Vector addition parameters
+   * @returns {Promise<Object>} Vector addition response
+   */
+  async addVectors(params) {
+    return {
+      added: params.vectors.length,
+      database_id: params.database_id
+    };
+  }
+  
+  /**
+   * Query vectors in a vector database
+   * @param {Object} params - Query parameters
+   * @returns {Promise<Object>} Query response
+   */
+  async queryVectors(params) {
+    return {
+      matches: [
+        { id: 'vec1', score: 0.92, metadata: { text: 'Sample vector result 1' } },
+        { id: 'vec2', score: 0.87, metadata: { text: 'Sample vector result 2' } },
+        { id: 'vec3', score: 0.74, metadata: { text: 'Sample vector result 3' } }
+      ],
+      database_id: params.database_id
+    };
+  }
+}
+
+document.addEventListener('DOMContentLoaded', async function() {
+  try {
+    // Initialize the chat interface
+    const chatMessages = document.getElementById('chat-messages');
+    const chatForm = document.getElementById('chat-form');
+    const messageInput = document.getElementById('message-input');
+    const modelSelect = document.getElementById('model-select');
+    const loadingElement = document.getElementById('loading');
+    
+    if (loadingElement) loadingElement.style.display = 'none';
+    // Initialize chat functionality
+    if (chatForm && chatMessages && messageInput && modelSelect) {
+      // Setup the chat form submission
+      chatForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const message = messageInput.value.trim();
+        const model = modelSelect.value;
+        
+        if (!message) return;
+        
+        // Clear the input
+        messageInput.value = '';
+        
+        // Add user message to chat
+        addMessageToChat('user', message);
+        
+        // Disable form while processing
+        const submitBtn = chatForm.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = 'Sending...';
+        
+        try {
+          // Check if SDK is initialized
+          if (!sdkInitialized || !openRouter) {
+            throw new Error('OpenRouter SDK not initialized. Please add your API key first.');
+          }
+          
+          // Add a loading message
+          const loadingMsgId = 'loading-' + Date.now();
+          addLoadingMessage(loadingMsgId);
+          
+          // Send message to the API
+          const response = await openRouter.createCompletion({
+            model: model,
+            messages: [
+              { role: 'user', content: message }
+            ],
+            temperature: 0.7,
+            max_tokens: 1000
+          });
+          
+          // Remove loading message
+          removeLoadingMessage(loadingMsgId);
+          
+          // Add assistant response to chat
+          if (response && response.choices && response.choices[0]) {
+            const assistantMessage = response.choices[0].message.content;
+            addMessageToChat('assistant', assistantMessage);
+          } else {
+            throw new Error('Invalid response format from API');
+          }
+          
+        } catch (error) {
+          console.error('Chat error:', error);
+          showError('Chat Error', error.message);
+          // Remove loading message if it exists
+          const loadingMsg = document.getElementById(loadingMsgId);
+          if (loadingMsg) loadingMsg.remove();
+        } finally {
+          // Re-enable form
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = 'Send';
+        }
+      });
+      
+      // Helper function to add messages to the chat
+      function addMessageToChat(role, content) {
+        const msgDiv = document.createElement('div');
+        msgDiv.className = `message ${role}-message`;
+        
+        const roleLabel = role === 'user' ? 'You' : 'Assistant';
+        
+        msgDiv.innerHTML = `
+          <div class="message-header">
+            <strong>${roleLabel}</strong>
+          </div>
+          <div class="message-content">${formatMessageContent(content)}</div>
+        `;
+        
+        chatMessages.appendChild(msgDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
+      
+      // Helper function to format message content with Markdown-like syntax
+      function formatMessageContent(content) {
+        if (!content) return '';
+        
+        // Replace newlines with <br> tags
+        let formatted = content.replace(/\n/g, '<br>');
+        
+        // Format code blocks
+        formatted = formatted.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
+        
+        return formatted;
+      }
+      
+      // Add loading message
+      function addLoadingMessage(id) {
+        const loadingDiv = document.createElement('div');
+        loadingDiv.className = 'message assistant-message loading';
+        loadingDiv.id = id;
+        loadingDiv.innerHTML = `
+          <div class="message-header">
+            <strong>Assistant</strong>
+          </div>
+          <div class="message-content">
+            <div class="typing-indicator">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+          </div>
+        `;
+        
+        chatMessages.appendChild(loadingDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
+      
+      // Remove loading message
+      function removeLoadingMessage(id) {
+        const loadingMsg = document.getElementById(id);
+        if (loadingMsg) loadingMsg.remove();
+      }
+    }
+
     
     /**
      * API Key management with secure storage
@@ -11,11 +527,15 @@ document.addEventListener('DOMContentLoaded', function() {
      * than localStorage, such as HTTP-only cookies, session storage with proper expiration,
      * or authenticated endpoints that handle the API key server-side
      */
-    let apiKey = localStorage.getItem('openrouter_api_key') || '';
+    let apiKey = localStorage.getItem('openrouter_api_key') || 'demo-mode';
+    if (!apiKey) {
+      console.warn('No API key found in localStorage, using demo mode');
+    }
     
     // SDK instance and state management
     let openRouter = null;
-    let chatMessages = [];
+    // Messages array for API calls tracking
+    let messagesHistory = [];
     let streamMessages = [];
     let vectorDbs = {};
     
@@ -23,70 +543,108 @@ document.addEventListener('DOMContentLoaded', function() {
     let sdkInitialized = false;
 
     // Set API key in UI if available
-    const apiKeyInput = document.getElementById('api-key');
+    const apiKeyInput = document.getElementById('openrouter-api-key');
+    const apiKeyForm = document.getElementById('api-key-form');
+    const toggleKeyVisibilityBtn = document.getElementById('toggle-key-visibility');
+    const clearApiKeyBtn = document.getElementById('clear-api-key');
+    const apiStatusEl = document.getElementById('api-status');
     
-    // Mask the API key in the UI for security (show only last 4 characters)
-    if (apiKey) {
+    // Set API key in form if available
+    if (apiKey && apiKeyInput) {
         apiKeyInput.value = apiKey;
-        
-        // Show partial key in UI elements that display the key
-        const keyDisplays = document.querySelectorAll('.api-key-display');
-        const maskedKey = maskApiKey(apiKey);
-        keyDisplays.forEach(el => {
-            if (el) el.textContent = maskedKey;
+    }
+    
+    // Handle toggle key visibility
+    if (toggleKeyVisibilityBtn) {
+        toggleKeyVisibilityBtn.addEventListener('click', function() {
+            if (apiKeyInput.type === 'password') {
+                apiKeyInput.type = 'text';
+                toggleKeyVisibilityBtn.innerHTML = '<i class="bi bi-eye-slash"></i> Hide';
+            } else {
+                apiKeyInput.type = 'password';
+                toggleKeyVisibilityBtn.innerHTML = '<i class="bi bi-eye"></i> Show';
+            }
         });
-        
-        // Initialize OpenRouter with the API key
-        initializeOpenRouter(apiKey);
+    }
+    
+    // Handle API key form submission
+    if (apiKeyForm) {
+        apiKeyForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const newApiKey = apiKeyInput.value.trim();
+            
+            if (!newApiKey) {
+                showError('API Key Required', 'Please enter your OpenRouter API key');
+                return;
+            }
+            
+            // Save to localStorage
+            localStorage.setItem('openrouter_api_key', newApiKey);
+            apiKey = newApiKey;
+            
+            // Initialize the SDK with the new key
+            initializeOpenRouter(apiKey).then(() => {
+                showSuccess('API Key saved successfully!');
+                updateStatusIndicators(true);
+            }).catch(error => {
+                showError('SDK Initialization Failed', error.message);
+                updateStatusIndicators(false);
+            });
+        });
+    }
+    
+    // Handle clear API key
+    if (clearApiKeyBtn) {
+        clearApiKeyBtn.addEventListener('click', function() {
+            localStorage.removeItem('openrouter_api_key');
+            apiKey = '';
+            apiKeyInput.value = '';
+            openRouter = null;
+            sdkInitialized = false;
+            updateStatusIndicators(false);
+            showSuccess('API Key removed successfully');
+        });
+    }
+    
+    // Initialize the API status display
+    if (apiStatusEl) {
+        if (apiKey) {
+            // Try to initialize with the saved key
+            initializeOpenRouter(apiKey).then(() => {
+                const maskedKey = maskApiKey(apiKey);
+                apiStatusEl.innerHTML = `
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-success">Connected</span>
+                        <span>Using API key: ${maskedKey}</span>
+                    </div>
+                `;
+            }).catch(error => {
+                apiStatusEl.innerHTML = `
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-danger">Error</span>
+                        <span>API key invalid or expired. Please update your API key.</span>
+                    </div>
+                `;
+            });
+        } else {
+            apiStatusEl.innerHTML = `
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-warning">Not Connected</span>
+                    <span>No API key provided. Please enter your OpenRouter API key above.</span>
+                </div>
+            `;
+        }
+    }
+    
+    // Initialize OpenRouter with the API key if not already done in the status section
+    if (apiKey && !sdkInitialized) {
+        await initializeOpenRouter(apiKey);
     }
 
     /**
-     * API Key validation and storage
-     * Checks for basic validation before saving and initializing
+     * Additional API key validations
+     * The main implementation is handled in the event listeners we defined above
      */
-    document.getElementById('save-api-key').addEventListener('click', function() {
-        const newApiKey = apiKeyInput.value.trim();
-        
-        // Basic API key validation
-        if (!newApiKey) {
-            showError('API Key Error', 'Please enter a valid API key');
-            return;
-        }
-        
-        // Simple format validation (OpenRouter keys are typically long strings)
-        if (newApiKey.length < 20) { 
-            showError('API Key Error', 'The API key appears to be too short. Please check your key.');
-            return;
-        }
-        
-        // Save and initialize
-        apiKey = newApiKey;
-        localStorage.setItem('openrouter_api_key', apiKey);
-        
-        // Display success message
-        showSuccess('API key saved successfully!');
-        
-        // Re-initialize with new key
-        initializeOpenRouter(apiKey);
-        
-        // Update masked displays
-        const keyDisplays = document.querySelectorAll('.api-key-display');
-        const maskedKey = maskApiKey(apiKey);
-        keyDisplays.forEach(el => {
-            if (el) el.textContent = maskedKey;
-        });
-    });
-    
-    // Clear API key
-    document.getElementById('clear-api-key')?.addEventListener('click', function() {
-        apiKey = '';
-        localStorage.removeItem('openrouter_api_key');
-        apiKeyInput.value = '';
-        openRouter = null;
-        sdkInitialized = false;
-        showSuccess('API key cleared successfully!');
-        updateStatusIndicators(false);
-    });
 
     /**
      * Helper function to mask API key for display
@@ -108,17 +666,14 @@ document.addEventListener('DOMContentLoaded', function() {
     function showError(title, message, duration = 5000) {
         console.error(`${title}: ${message}`);
         // Check if we have a dedicated error container
-        const errorContainer = document.getElementById('error-container');
-        if (errorContainer) {
-            errorContainer.innerHTML = `<div class="error-message"><strong>${title}</strong>: ${message}</div>`;
-            errorContainer.style.display = 'block';
+        const errorLog = document.getElementById('error-log');
+        if (errorLog) {
+            errorLog.innerHTML = `<strong>${title}</strong>: ${message}`;
+            errorLog.style.display = 'block';
             // Auto-hide after specified duration
             setTimeout(() => {
-                errorContainer.style.display = 'none';
+                errorLog.style.display = 'none';
             }, duration);
-        } else {
-            // Fallback to alert
-            alert(`${title}: ${message}`);
         }
     }
     
@@ -130,17 +685,14 @@ document.addEventListener('DOMContentLoaded', function() {
     function showSuccess(message, duration = 3000) {
         console.log(`Success: ${message}`);
         // Check if we have a dedicated success container
-        const successContainer = document.getElementById('success-container');
-        if (successContainer) {
-            successContainer.innerHTML = `<div class="success-message">${message}</div>`;
-            successContainer.style.display = 'block';
+        const successLog = document.getElementById('success-log');
+        if (successLog) {
+            successLog.innerHTML = message;
+            successLog.style.display = 'block';
             // Auto-hide after specified duration
             setTimeout(() => {
-                successContainer.style.display = 'none';
+                successLog.style.display = 'none';
             }, duration);
-        } else {
-            // Fallback to alert
-            alert(message);
         }
     }
     
@@ -172,79 +724,78 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // This assumes the OpenRouter SDK is available as a global variable
             // In a real implementation, you would import it properly using module bundlers
-            if (typeof OpenRouter !== 'undefined') {
-                // Create SDK instance with configuration
-                openRouter = new OpenRouter({
-                    apiKey: key,
-                    defaultModel: 'openai/gpt-3.5-turbo',
-                    // Add additional configuration for better error handling
-                    maxRetries: 3,
-                    timeout: 60000, // 60 seconds
-                    debug: false    // Set to true for verbose logging during development
-                });
-                
-                try {
-                    // Test the connection by listing models
-                    const models = await openRouter.listModels();
-                    
-                    if (!models || !models.data || !Array.isArray(models.data)) {
-                        throw new Error('Invalid response from OpenRouter API');
-                    }
-                    
-                    console.log(`SDK initialized with ${models.data.length} available models`); 
-                    sdkInitialized = true;
-                    updateStatusIndicators(true);
-                    showSuccess('OpenRouter SDK initialized successfully!');
-                    
-                    // Populate model dropdowns with available models
-                    populateModelDropdowns(models.data);
-                } catch (error) {
-                    console.error('API connection error:', error);
-                    sdkInitialized = false;
-                    updateStatusIndicators(false);
-                    
-                    // Provide helpful error messages based on error type
-                    if (error.status === 401) {
-                        showError('Authentication Error', 'The provided API key is invalid. Please check your key.');
-                    } else if (error.status === 403) {
-                        showError('Permission Error', 'The API key does not have permission to access this resource.');
-                    } else if (error.status === 429) {
-                        showError('Rate Limit Error', 'You have exceeded your rate limit. Please try again later.');
-                    } else if (error.message && error.message.includes('timeout')) {
-                        showError('Timeout Error', 'The connection to OpenRouter timed out. Please try again later.');
-                    } else if (error.message && error.message.includes('network')) {
-                        showError('Network Error', 'Unable to connect to OpenRouter. Please check your internet connection.');
-                    } else {
-                        showError('API Error', error.message || 'Failed to connect to OpenRouter API');
-                    }
-                }
-            } else {
-                console.error('OpenRouter SDK not found. Make sure the script is loaded correctly.');
-                showError('SDK Error', 'OpenRouter SDK not found. Make sure the script is loaded correctly.');
-                updateStatusIndicators(false);
+            if (typeof OpenRouter === 'undefined') {
+                throw new Error('OpenRouter SDK not found. Make sure the script is loaded correctly.');
             }
+            
+            // Create SDK instance with configuration
+            openRouter = new OpenRouter({
+                apiKey: key,
+                defaultModel: 'openai/gpt-3.5-turbo',
+                maxRetries: 3,
+                timeout: 60000,
+                debug: false
+            });
+            
+            // Test the connection by listing models
+            const models = await openRouter.listModels();
+            
+            if (!models || !models.data || !Array.isArray(models.data)) {
+                throw new Error('Invalid response from OpenRouter API');
+            }
+            
+            console.log(`SDK initialized with ${models.data.length} available models`); 
+            sdkInitialized = true;
+            updateStatusIndicators(true);
+            showSuccess('OpenRouter SDK initialized successfully!');
+            
+            // Populate model dropdowns with available models
+            populateModelDropdowns(models.data);
+            
         } catch (error) {
             console.error('Failed to initialize OpenRouter:', error);
-            showError('SDK Error', 'Failed to initialize OpenRouter SDK: ' + (error.message || 'Unknown error'));
+            sdkInitialized = false;
             updateStatusIndicators(false);
+            
+            // Determine specific error type and show appropriate message
+            let errorMessage = error.message || 'Unknown error occurred';
+            if (error.status === 401) {
+                errorMessage = 'The provided API key is invalid. Please check your key.';
+            } else if (error.status === 403) {
+                errorMessage = 'The API key does not have permission to access this resource.';
+            } else if (error.status === 429) {
+                errorMessage = 'Rate limit exceeded. Please try again later.';
+            } else if (error.message && error.message.includes('timeout')) {
+                errorMessage = 'Connection to OpenRouter timed out. Please try again.';
+            } else if (error.message && error.message.includes('network')) {
+                errorMessage = 'Network connection error. Please check your internet connection.';
+            }
+            
+            showError('SDK Initialization Failed', errorMessage);
+            throw error; // Re-throw to be caught by outer handlers
         }
     }
-    
     /**
      * Populates model selection dropdowns with available models
-     * @param {Array} models - Array of available models from the API
+     * 
+     * @param {Array} models - Array of model objects containing id, name, and pricing info
      */
     function populateModelDropdowns(models) {
-        if (!Array.isArray(models) || models.length === 0) return;
+        if (!Array.isArray(models) || models.length === 0) {
+            console.warn('No models available to populate dropdowns');
+            return;
+        }
         
         // Get all model select dropdowns
         const modelSelects = document.querySelectorAll('select[id$="-model"]');
         
         modelSelects.forEach(select => {
+            if (!select) return;
+            
             // Store current selection if any
             const currentSelection = select.value;
             
-            // Clear existing options except the default ones (first ones)
+            // Clear existing options except the default/first option
             while (select.options.length > 1) {
                 select.remove(1);
             }
@@ -255,1176 +806,32 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 const option = document.createElement('option');
                 option.value = model.id;
-                option.textContent = `${model.id}${model.pricing ? ` - $${model.pricing.prompt}/1M in, $${model.pricing.completion}/1M out` : ''}`;
+                
+                // Create descriptive label including pricing if available
+                let label = model.id;
+                if (model.pricing) {
+                    label += ` - $${model.pricing.prompt}/1M in, $${model.pricing.completion}/1M out`;
+                }
+                option.textContent = label;
+                
                 select.appendChild(option);
                 
-                // If this was the previously selected model, reselect it
+                // Restore previous selection if it matches
                 if (model.id === currentSelection) {
                     select.value = model.id;
                 }
             });
-        });
-    }
-
-    // Tab switching
-    const tabButtons = document.querySelectorAll('.tab-button');
-    const tabPanes = document.querySelectorAll('.tab-pane');
-
-    tabButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            const tabId = this.getAttribute('data-tab');
             
-            // Remove active class from all buttons and panes
-            tabButtons.forEach(btn => btn.classList.remove('active'));
-            tabPanes.forEach(pane => pane.classList.remove('active'));
-            
-            // Add active class to current button and pane
-            this.classList.add('active');
-            document.getElementById(`${tabId}-tab`).classList.add('active');
-        });
-    });
-
-    // Temperature sliders
-    const chatTemperatureSlider = document.getElementById('chat-temperature');
-    const chatTemperatureValue = document.getElementById('chat-temperature-value');
-    const streamTemperatureSlider = document.getElementById('stream-temperature');
-    const streamTemperatureValue = document.getElementById('stream-temperature-value');
-
-    chatTemperatureSlider.addEventListener('input', function() {
-        chatTemperatureValue.textContent = this.value;
-    });
-
-    streamTemperatureSlider.addEventListener('input', function() {
-        streamTemperatureValue.textContent = this.value;
-    });
-
-    // Vector DB action selection
-    const vectorDbAction = document.getElementById('vectordb-action');
-    const vectorDbCreateForm = document.getElementById('vectordb-create-form');
-    const vectorDbAddForm = document.getElementById('vectordb-add-form');
-    const vectorDbSearchForm = document.getElementById('vectordb-search-form');
-
-    vectorDbAction.addEventListener('change', function() {
-        const action = this.value;
-        
-        // Hide all forms
-        vectorDbCreateForm.style.display = 'none';
-        vectorDbAddForm.style.display = 'none';
-        vectorDbSearchForm.style.display = 'none';
-        
-        // Show selected form
-        if (action === 'create') {
-            vectorDbCreateForm.style.display = 'block';
-        } else if (action === 'add') {
-            vectorDbAddForm.style.display = 'block';
-        } else if (action === 'search') {
-            vectorDbSearchForm.style.display = 'block';
-        }
-    });
-
-    /**
-     * Chat Completions
-     * Handles sending chat messages to the API and displaying responses
-     */
-    document.getElementById('chat-send').addEventListener('click', sendChatMessage);
-    document.getElementById('chat-input').addEventListener('keydown', function(e) {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            sendChatMessage();
-        }
-    });
-
-    /**
-     * Send a chat message to OpenRouter API and display the response
-     * Includes improved error handling and UI feedback
-     */
-    /**
-     * Send a chat message to the OpenRouter API and handle the response
-     * @returns {Promise<void>}
-     */
-    async function sendChatMessage() {
-        // Verify SDK initialization
-        if (!openRouter) {
-            showError('SDK Error', 'Please set your OpenRouter API key first');
-            return;
-        }
-        
-        // Validate input
-        const chatInput = document.getElementById('chat-input');
-        if (!chatInput) {
-            console.error('Chat input element not found');
-            return;
-        }
-        
-        const userMessage = chatInput.value.trim();
-        
-        if (!userMessage) {
-            showError('Input Error', 'Please enter a message', 2000);
-            return;
-        }
-        
-        // Clear input and focus for next message
-        chatInput.value = '';
-        chatInput.focus();
-        
-        // Get chat settings with validation
-        const modelSelect = document.getElementById('chat-model');
-        if (!modelSelect) {
-            console.error('Model selection element not found');
-            return;
-        }
-        
-        const model = modelSelect.value;
-        if (!model) {
-            showError('Configuration Error', 'Please select a model');
-            return;
-        }
-        
-        // Initialize with safe defaults
-        let temperature = 0.7; // Default
-        let maxTokens = 1000; // Default
-        
-        try {
-            // Get and validate temperature
-            const tempElement = document.getElementById('chat-temperature');
-            if (tempElement) {
-                temperature = parseFloat(tempElement.value);
-                if (isNaN(temperature) || temperature < 0 || temperature > 2) {
-                    temperature = 0.7; // Reset to default if invalid
-                    console.warn('Invalid temperature value, using default of 0.7');
-                }
-            }
-            
-            // Get and validate max tokens
-            const maxTokensElement = document.getElementById('chat-max-tokens');
-            if (maxTokensElement) {
-                maxTokens = parseInt(maxTokensElement.value);
-                if (isNaN(maxTokens) || maxTokens < 1 || maxTokens > 8192) {
-                    maxTokens = 1000; // Reset to default if invalid
-                    console.warn('Invalid max_tokens value, using default of 1000');
-                }
-            }
-        } catch (e) {
-            console.warn('Error parsing parameters, using defaults:', e);
-        }
-        
-        // Get system message if provided
-        const systemMessageElement = document.getElementById('chat-system-message');
-        const systemMessage = systemMessageElement ? systemMessageElement.value.trim() : '';
-        
-        // Add system message if provided and not already added
-        if (systemMessage && !chatMessages.some(msg => msg.role === 'system')) {
-            chatMessages.push({ role: 'system', content: systemMessage });
-        }
-        
-        // Add user message
-        chatMessages.push({ role: 'user', content: userMessage });
-        
-        // Update chat UI
-        updateChatUI('chat-messages', chatMessages);
-        
-        // Track request start time for latency calculation
-        const requestStartTime = Date.now();
-        
-        // Get message container for status updates
-        const messagesContainer = document.getElementById('chat-messages');
-        
-        // Validate messagesContainer exists
-        if (!messagesContainer) {
-            console.error('Chat messages container not found');
-            return;
-        }
-        
-        try {
-            // Add loading indicator with unique ID for easy removal
-            const loadingId = 'loading-' + Date.now();
-            const loadingDiv = document.createElement('div');
-            loadingDiv.id = loadingId;
-            loadingDiv.className = 'message-container loading-container';
-            loadingDiv.innerHTML = '<div class="message-header assistant-header">Assistant</div><div class="message assistant-message"><div class="loading"></div></div>';
-            messagesContainer.appendChild(loadingDiv);
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            
-            // Show model information
-            const statusContainer = document.getElementById('chat-status') || document.createElement('div');
-            statusContainer.innerHTML = `<span class="status-info">Requesting: ${model}, temp: ${temperature}</span>`;
-            
-            // Prepare request with proper error handling
-            const response = await openRouter.createChatCompletion({
-                model: model,
-                messages: chatMessages,
-                temperature: temperature,
-                max_tokens: maxTokens
-            });
-            
-            // Calculate latency
-            const latencyMs = Date.now() - requestStartTime;
-            
-            // Remove loading indicator
-            const loadingElement = document.getElementById(loadingId);
-            if (loadingElement) {
-                messagesContainer.removeChild(loadingElement);
-            }
-            
-            // Process and validate response
-            if (response && response.choices && response.choices.length > 0) {
-                // Add assistant response
-                const assistantMessage = response.choices[0].message;
-                chatMessages.push(assistantMessage);
-                
-                // Update chat UI
-                updateChatUI('chat-messages', chatMessages);
-                
-                // Update status with usage information if available
-                if (response.usage) {
-                    const { prompt_tokens, completion_tokens, total_tokens } = response.usage;
-                    if (statusContainer) {
-                        statusContainer.innerHTML = `<span class="status-info">Model: ${model}, Latency: ${latencyMs}ms, Tokens: ${prompt_tokens}+${completion_tokens}=${total_tokens}</span>`;
-                    }
-                }
-            } else {
-                throw new Error('Received empty response from API');
-            }
-            
-        } catch (error) {
-            console.error('Chat completion error:', error);
-            
-            // Clean up any remaining loading indicators
-            const loadingElements = document.querySelectorAll('.loading-container');
-            loadingElements.forEach(el => el.remove());
-            
-            // Add error message to chat instead of alert
-            const errorDiv = document.createElement('div');
-            errorDiv.className = 'message-container error-container';
-            
-            // Provide more specific error messages based on error type
-            let errorMessage = 'Failed to get a response from the AI';
-            let errorTitle = 'API Error';
-            
-            if (error.status === 401) {
-                errorTitle = 'Authentication Error';
-                errorMessage = 'API key is invalid or expired. Please check your API key.';
-            } else if (error.status === 403) {
-                errorTitle = 'Permission Error';
-                errorMessage = 'The API key does not have permission to access this resource.';
-            } else if (error.status === 404) {
-                errorTitle = 'Model Not Found';
-                errorMessage = 'The requested model was not found. Please select a different model.';
-            } else if (error.status === 429) {
-                errorTitle = 'Rate Limit Error';
-                errorMessage = 'Rate limit exceeded. Please try again in a moment.';
-            } else if (error.message && error.message.includes('timeout')) {
-                errorTitle = 'Timeout Error';
-                errorMessage = 'Request timed out. The model might be busy, please try again.';
-            } else if (error.message && error.message.includes('network')) {
-                errorTitle = 'Network Error';
-                errorMessage = 'Network connection error. Please check your internet connection.';
-            } else if (error.message) {
-                errorMessage = error.message;
-            }
-            
-            // Log for debugging
-            console.warn(`${errorTitle}: ${errorMessage}`);
-            
-            errorDiv.innerHTML = `
-                <div class="message-header error-header">${errorTitle}</div>
-                <div class="message error-message">${errorMessage}</div>
-            `;
-            
-            messagesContainer.appendChild(errorDiv);
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            
-            // Also update the status container with the error
-            const statusContainer = document.getElementById('chat-status');
-            if (statusContainer) {
-                statusContainer.innerHTML = `<span class="status-error">${errorTitle}: ${errorMessage}</span>`;
-            }
-        }
-    }
-
-    /**
-     * Streaming Chat Functionality
-     * Handles sending chat messages to the API with streaming response
-     */
-    document.getElementById('stream-send').addEventListener('click', sendStreamMessage);
-    document.getElementById('stream-input').addEventListener('keydown', function(e) {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            sendStreamMessage();
-        }
-    });
-
-    /**
-     * Send a chat message with streaming response
-     * Includes improved error handling and UI feedback for token-by-token streaming
-     */
-    async function sendStreamMessage() {
-        // Verify SDK initialization
-        if (!openRouter) {
-            showError('SDK Error', 'Please set your OpenRouter API key first');
-            return;
-        }
-
-        // Validate input
-        const streamInput = document.getElementById('stream-input');
-        const userMessage = streamInput.value.trim();
-        
-        if (!userMessage) return;
-        
-        // Clear input
-        streamInput.value = '';
-        
-        // Get stream settings with validation
-        const model = document.getElementById('stream-model').value;
-        let temperature = 0.7; // Default
-        let maxTokens = 1000; // Default
-        
-        try {
-            temperature = parseFloat(document.getElementById('stream-temperature').value);
-            if (isNaN(temperature) || temperature < 0 || temperature > 2) {
-                temperature = 0.7; // Reset to default if invalid
-                console.warn('Invalid temperature value for streaming, using default of 0.7');
-            }
-            
-            maxTokens = parseInt(document.getElementById('stream-max-tokens').value);
-            if (isNaN(maxTokens) || maxTokens < 1) {
-                maxTokens = 1000; // Reset to default if invalid
-                console.warn('Invalid max_tokens value for streaming, using default of 1000');
-            }
-        } catch (e) {
-            console.warn('Error parsing streaming parameters, using defaults:', e);
-        }
-        
-        const systemMessage = document.getElementById('stream-system-message').value.trim();
-        
-        // Add system message if provided and not already added
-        if (systemMessage && !streamMessages.some(msg => msg.role === 'system')) {
-            streamMessages.push({ role: 'system', content: systemMessage });
-        }
-        
-        // Add user message
-        streamMessages.push({ role: 'user', content: userMessage });
-        
-        // Update stream UI
-        updateChatUI('stream-messages', streamMessages);
-        
-        // Track request start time for latency calculation
-        const requestStartTime = Date.now();
-        
-        // Add status display
-        const statusContainer = document.getElementById('stream-status') || document.createElement('div');
-        if (statusContainer) {
-            statusContainer.innerHTML = `<span class="status-info">Requesting stream: ${model}, temp: ${temperature}</span>`;
-        }
-        
-        try {
-            // Get container and prepare for streaming
-            const messagesContainer = document.getElementById('stream-messages');
-            
-            // Validate messagesContainer exists
-            if (!messagesContainer) {
-                console.error('Stream messages container not found');
-                return;
-            }
-            
-            // Create unique streaming container for this message
-            const streamId = 'stream-' + Date.now();
-            const streamContainer = document.createElement('div');
-            streamContainer.className = 'message-container';
-            streamContainer.innerHTML = `
-                <div class="message-header assistant-header">Assistant</div>
-                <div class="message assistant-message" id="${streamId}"></div>
-            `;
-            messagesContainer.appendChild(streamContainer);
-            const streamElement = document.getElementById(streamId);
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            
-            // Initialize streaming variables
-            let streamContent = '';
-            let tokenCount = 0;
-            let streamStarted = false;
-            let streamingLatency = 0;
-            
-            // Add initial typing indicator
-            streamElement.innerHTML = '<div class="typing-indicator"><span></span><span></span><span></span></div>';
-            
-            // Start streaming with error handling
-            try {
-                for await (const chunk of openRouter.streamChatCompletions({
-                    model: model,
-                    messages: streamMessages,
-                    temperature: temperature,
-                    max_tokens: maxTokens
-                })) {
-                    // Record time to first token
-                    if (!streamStarted) {
-                        streamStarted = true;
-                        streamingLatency = Date.now() - requestStartTime;
-                        // Update status with the latency time
-                        if (statusContainer) {
-                            statusContainer.innerHTML = `<span class="status-info">Streaming: ${model}, First token: ${streamingLatency}ms</span>`;
-                        }
-                    }
-                    
-                    const content = chunk.choices?.[0]?.delta?.content || '';
-                    if (content) {
-                        // Remove typing indicator on first real content
-                        if (streamContent === '') {
-                            streamElement.innerHTML = '';
-                        }
-                        
-                        streamContent += content;
-                        tokenCount++;
-                        
-                        // Apply formatting to the content
-                        streamElement.textContent = streamContent;
-                        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                        
-                        // Periodically update token count in status
-                        if (tokenCount % 10 === 0 && statusContainer) {
-                            statusContainer.innerHTML = `<span class="status-info">Streaming: ${model}, Tokens: ${tokenCount}</span>`;
-                        }
-                    }
-                }
-                
-                // Add message to history once complete
-                streamMessages.push({ role: 'assistant', content: streamContent });
-                
-                // Update final status
-                if (statusContainer) {
-                    statusContainer.innerHTML = `<span class="status-info">Complete: ${model}, Tokens: ${tokenCount}, Latency: ${streamingLatency}ms</span>`;
-                }
-                
-                // Remove stream ID to prevent overwriting
-                streamElement.removeAttribute('id');
-                
-            } catch (streamError) {
-                console.error('Stream processing error:', streamError);
-                // Display error in the stream output instead of removing it
-                streamElement.innerHTML = `<div class="error-message">Error during streaming: ${streamError.message || 'Connection error'}</div>`;
-                throw streamError; // Re-throw to be caught by outer handler
-            }
-            
-        } catch (error) {
-            console.error('Stream setup error:', error);
-            
-            // Display error in the stream container
-            const messagesContainer = document.getElementById('stream-messages');
-            const errorDiv = document.createElement('div');
-            errorDiv.className = 'message-container error-container';
-            
-            // Provide more specific error messages based on error type
-            let errorMessage = 'Failed to stream response';
-            
-            if (error.status === 401) {
-                errorMessage = 'API key is invalid or expired. Please check your API key.';
-            } else if (error.status === 429) {
-                errorMessage = 'Rate limit exceeded. Please try again in a moment.';
-            } else if (error.message && error.message.includes('timeout')) {
-                errorMessage = 'Stream request timed out. The model might be busy, please try again.';
-            } else if (error.message) {
-                errorMessage = error.message;
-            }
-            
-            errorDiv.innerHTML = `
-                <div class="message-header error-header">Error</div>
-                <div class="message error-message">${errorMessage}</div>
-            `;
-            
-            messagesContainer.appendChild(errorDiv);
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            
-            // Update status with error
-            if (statusContainer) {
-                statusContainer.innerHTML = `<span class="status-error">Streaming failed: ${errorMessage}</span>`;
-            }
-        }
-    }
-
-    // Update chat UI
-    /**
-     * Update chat UI with formatted messages
-     * @param {string} containerId - ID of the container element
-     * @param {Array} messages - Array of message objects
-     * @param {boolean} [formatMarkdown=true] - Whether to format assistant messages with markdown
-     */
-    function updateChatUI(containerId, messages, formatMarkdown = true) {
-        const container = document.getElementById(containerId);
-        if (!container) {
-            console.error(`Container not found: ${containerId}`);
-            return;
-        }
-        
-        // Clear container
-        container.innerHTML = '';
-        
-        // Add messages
-        messages.forEach(message => {
-            if (!message || !message.role || !message.content) {
-                console.warn('Invalid message format', message);
-                return;
-            }
-            
-            if (message.role === 'system') {
-                const systemDiv = document.createElement('div');
-                systemDiv.className = 'system-message';
-                systemDiv.textContent = `System: ${message.content}`;
-                container.appendChild(systemDiv);
-            } else {
-                const messageContainer = document.createElement('div');
-                messageContainer.className = 'message-container';
-                
-                const header = document.createElement('div');
-                header.className = `message-header ${message.role}-header`;
-                header.textContent = message.role === 'user' ? 'You' : 'Assistant';
-                
-                const messageDiv = document.createElement('div');
-                messageDiv.className = `message ${message.role}-message`;
-                
-                // Apply markdown formatting for assistant messages if enabled
-                if (formatMarkdown && message.role === 'assistant') {
-                    messageDiv.innerHTML = formatMessageContent(message.content);
-                } else {
-                    messageDiv.textContent = message.content;
-                }
-                
-                messageContainer.appendChild(header);
-                messageContainer.appendChild(messageDiv);
-                container.appendChild(messageContainer);
+            // Set first model as default if no previous selection
+            if (!currentSelection && select.options.length > 0) {
+                select.selectedIndex = 0;
             }
         });
-        
-        // Scroll to bottom
-        container.scrollTop = container.scrollHeight;
     }
     
-    /**
-     * Format message content with markdown-like syntax
-     * @param {string} content - Raw message content
-     * @returns {string} - HTML formatted content
-     */
-    function formatMessageContent(content) {
-        if (!content) return '';
-        
-        // Safety check
-        if (typeof content !== 'string') {
-            return String(content);
-        }
-        
-        let formatted = content;
-        
-        // Format code blocks - ```code```
-        formatted = formatted.replace(/```([\s\S]*?)```/g, (match, codeContent) => {
-            return `<pre class="code-block"><code>${escapeHtml(codeContent.trim())}</code></pre>`;
-        });
-        
-        // Format inline code - `code`
-        formatted = formatted.replace(/`([^`]+)`/g, (match, codeContent) => {
-            return `<code class="inline-code">${escapeHtml(codeContent)}</code>`;
-        });
-        
-        // Convert line breaks to <br>
-        formatted = formatted.replace(/\n/g, '<br>');
-        
-        return formatted;
-    }
-    
-    /**
-     * Escape HTML to prevent XSS
-     * @param {string} html - String that may contain HTML
-     * @returns {string} - Escaped string
-     */
-    function escapeHtml(html) {
-        const div = document.createElement('div');
-        div.textContent = html;
-        return div.innerHTML;
-    }
-
-    // Embeddings
-    document.getElementById('embedding-generate').addEventListener('click', async function() {
-        if (!openRouter) {
-            showError('SDK Error', 'Please set your OpenRouter API key first');
-            return;
-        }
-
-        const model = document.getElementById('embedding-model').value;
-        const input = document.getElementById('embedding-input').value.trim();
-        
-        if (!input) {
-            alert('Please enter some text to generate embeddings for');
-            return;
-        }
-        
-        const resultContainer = document.getElementById('embedding-result');
-        resultContainer.innerHTML = '<div class="loading"></div>';
-        
-        try {
-            const response = await openRouter.createEmbedding({
-                model: model,
-                input: input
-            });
-            
-            // Display first 10 values of embedding
-            const embedding = response.data[0].embedding;
-            const truncatedEmbedding = embedding.slice(0, 10);
-            
-            resultContainer.innerHTML = `
-                <p>Generated ${embedding.length}-dimensional embedding vector:</p>
-                <p>[${truncatedEmbedding.map(v => v.toFixed(6)).join(', ')}, ...]</p>
-                <p>Total tokens: ${response.usage.total_tokens}</p>
-            `;
-        } catch (error) {
-            console.error('Embedding error:', error);
-            resultContainer.innerHTML = `<p class="error">Error: ${error.message || 'Failed to generate embeddings'}</p>`;
-        }
-    });
-
-    // Image Generation
-    document.getElementById('image-generate').addEventListener('click', async function() {
-        if (!openRouter) {
-            alert('Please set your OpenRouter API key first');
-            return;
-        }
-
-        const model = document.getElementById('image-model').value;
-        const prompt = document.getElementById('image-prompt').value.trim();
-        const size = document.getElementById('image-size').value;
-        const quality = document.getElementById('image-quality').value;
-        
-        if (!prompt) {
-            alert('Please enter a prompt for image generation');
-            return;
-        }
-        
-        const resultContainer = document.getElementById('image-result');
-        resultContainer.innerHTML = '<div class="loading"></div>';
-        
-        try {
-            const response = await openRouter.createImage({
-                model: model,
-                prompt: prompt,
-                size: size,
-                quality: quality
-            });
-            
-            // Display generated image
-            const imageUrl = response.data[0].url;
-            resultContainer.innerHTML = `<img src="${imageUrl}" alt="Generated image">`;
-        } catch (error) {
-            console.error('Image generation error:', error);
-            resultContainer.innerHTML = `<p class="error">Error: ${error.message || 'Failed to generate image'}</p>`;
-        }
-    });
-
-    // Audio Transcription
-    document.getElementById('audio-transcribe').addEventListener('click', async function() {
-        if (!openRouter) {
-            alert('Please set your OpenRouter API key first');
-            return;
-        }
-
-        const model = document.getElementById('audio-model').value;
-        const fileInput = document.getElementById('audio-file');
-        const language = document.getElementById('audio-language').value.trim();
-        
-        if (!fileInput.files || fileInput.files.length === 0) {
-            alert('Please select an audio file to transcribe');
-            return;
-        }
-        
-        const resultContainer = document.getElementById('audio-result');
-        resultContainer.innerHTML = '<div class="loading"></div>';
-        
-        try {
-            const file = fileInput.files[0];
-            
-            const response = await openRouter.createTranscription({
-                model: model,
-                file: file,
-                language: language || undefined
-            });
-            
-            // Display transcription
-            resultContainer.innerHTML = `<p>${response.text}</p>`;
-        } catch (error) {
-            console.error('Transcription error:', error);
-            resultContainer.innerHTML = `<p class="error">Error: ${error.message || 'Failed to transcribe audio'}</p>`;
-        }
-    });
-
-    // Function Calling
-    document.getElementById('function-call').addEventListener('click', async function() {
-        if (!openRouter) {
-            showError('SDK Error', 'Please set your OpenRouter API key first');
-            return;
-        }
-
-        const model = document.getElementById('function-model').value;
-        const prompt = document.getElementById('function-prompt').value.trim();
-        const functionsJson = document.getElementById('function-definitions').value.trim();
-        
-        if (!prompt) {
-            alert('Please enter a prompt');
-            return;
-        }
-        
-        if (!functionsJson) {
-            alert('Please define at least one function');
-            return;
-        }
-        
-        let functions;
-        try {
-            functions = JSON.parse(functionsJson);
-        } catch (error) {
-            alert('Invalid JSON for function definitions');
-            return;
-        }
-        
-        const resultContainer = document.getElementById('function-result');
-        resultContainer.innerHTML = '<div class="loading"></div>';
-        
-        try {
-            // Convert functions to tools format
-            const tools = functions.map(func => ({
-                type: 'function',
-                function: func
-            }));
-            
-            const response = await openRouter.createChatCompletion({
-                model: model,
-                messages: [{ role: 'user', content: prompt }],
-                tools: tools,
-                tool_choice: 'auto'
-            });
-            
-            // Check if the model called a function
-            const message = response.choices[0].message;
-            const toolCalls = message.tool_calls;
-            
-            if (toolCalls && toolCalls.length > 0) {
-                // Display function calls
-                let resultHtml = '<h4>Function Calls:</h4>';
-                
-                toolCalls.forEach(call => {
-                    if (call.type === 'function') {
-                        resultHtml += `
-                            <div class="function-call">
-                                <p><strong>Function:</strong> ${call.function.name}</p>
-                                <p><strong>Arguments:</strong></p>
-                                <pre>${JSON.stringify(JSON.parse(call.function.arguments), null, 2)}</pre>
-                            </div>
-                        `;
-                    }
-                });
-                
-                resultHtml += `<h4>Model Response:</h4><p>${message.content || '(No content, only function calls)'}</p>`;
-                resultContainer.innerHTML = resultHtml;
-            } else {
-                // No function calls, just display the response
-                resultContainer.innerHTML = `<p>${message.content}</p>`;
-            }
-        } catch (error) {
-            console.error('Function calling error:', error);
-            resultContainer.innerHTML = `<p class="error">Error: ${error.message || 'Failed to call functions'}</p>`;
-        }
-    });
-
-    // Vector DB operations
-    document.getElementById('vectordb-execute').addEventListener('click', async function() {
-        if (!openRouter) {
-            showError('SDK Error', 'Please set your OpenRouter API key first');
-            return;
-        }
-
-        const action = document.getElementById('vectordb-action').value;
-        const resultContainer = document.getElementById('vectordb-result');
-        resultContainer.innerHTML = '<div class="loading"></div>';
-        
-        try {
-            if (action === 'create') {
-                const id = document.getElementById('vectordb-id').value.trim();
-                const dimensions = parseInt(document.getElementById('vectordb-dimensions').value);
-                const metric = document.getElementById('vectordb-metric').value;
-                
-                if (!id) {
-                    throw new Error('Please enter a Vector DB ID');
-                }
-                
-                // Create vector DB
-                // Create AIOrchestrator for Chroma operations
-                const orchestrator = new AIOrchestrator({
-                    apiKey: apiKey,
-                    defaultModel: 'anthropic/claude-3-opus'
-                });
-                
-                // Create vector DB with Chroma
-                vectorDbs[id] = await orchestrator.createVectorDb(id, {
-                    dimensions: dimensions,
-                    similarityMetric: metric,
-                    maxVectors: 10000
-                });
-                
-                resultContainer.innerHTML = `<p>Chroma Vector DB "${id}" created successfully with ${dimensions} dimensions and ${metric} similarity metric.</p>`;
-            } else if (action === 'add') {
-                const id = document.getElementById('vectordb-add-id').value.trim();
-                const documentsJson = document.getElementById('vectordb-documents').value.trim();
-                
-                if (!id) {
-                    throw new Error('Please enter a Vector DB ID');
-                }
-                
-                if (!vectorDbs[id]) {
-                    // Create AIOrchestrator for Chroma operations
-                    const orchestrator = new AIOrchestrator({
-                        apiKey: apiKey,
-                        defaultModel: 'anthropic/claude-3-opus'
-                    });
-                    
-                    // Create vector DB with Chroma
-                    vectorDbs[id] = await orchestrator.createVectorDb(id, {
-                        dimensions: 1536,
-                        similarityMetric: 'cosine',
-                        maxVectors: 10000
-                    });
-                }
-                
-                if (!documentsJson) {
-                    throw new Error('Please enter documents to add');
-                }
-                
-                // Parse documents
-                const documents = JSON.parse(documentsJson);
-                
-                // Add documents
-                const docIds = await vectorDbs[id].addDocuments(documents);
-                
-                resultContainer.innerHTML = `<p>Added ${docIds.length} documents to Chroma Vector DB "${id}".</p>`;
-            } else if (action === 'search') {
-                const id = document.getElementById('vectordb-search-id').value.trim();
-                const query = document.getElementById('vectordb-query').value.trim();
-                const limit = parseInt(document.getElementById('vectordb-limit').value);
-                
-                if (!id) {
-                    throw new Error('Please enter a Vector DB ID');
-                }
-                
-                if (!vectorDbs[id]) {
-                    // Create AIOrchestrator for Chroma operations
-                    const orchestrator = new AIOrchestrator({
-                        apiKey: apiKey,
-                        defaultModel: 'anthropic/claude-3-opus'
-                    });
-                    
-                    // Create vector DB with Chroma
-                    vectorDbs[id] = await orchestrator.createVectorDb(id, {
-                        dimensions: 1536,
-                        similarityMetric: 'cosine',
-                        maxVectors: 10000
-                    });
-                }
-                
-                if (!query) {
-                    throw new Error('Please enter a search query');
-                }
-                
-                // Search
-                const results = await vectorDbs[id].searchByText(query, { limit });
-                
-                // Display results
-                let resultHtml = `<p>Found ${results.length} results for "${query}" in Chroma Vector DB "${id}":</p>`;
-                
-                if (results.length > 0) {
-                    resultHtml += '<ul>';
-                    results.forEach(result => {
-                        resultHtml += `
-                            <li>
-                                <p><strong>Score:</strong> ${result.score.toFixed(4)}</p>
-                                <p><strong>Content:</strong> ${result.document.content}</p>
-                                <p><strong>Metadata:</strong> ${JSON.stringify(result.document.metadata)}</p>
-                            </li>
-                        `;
-                    });
-                    resultHtml += '</ul>';
-                }
-                
-                resultContainer.innerHTML = resultHtml;
-            }
-        } catch (error) {
-            console.error('Vector DB error:', error);
-            resultContainer.innerHTML = `<p class="error">Error: ${error.message || 'Vector DB operation failed'}</p>`;
-        }
-    });
-
-    // Knowledge Agents
-    document.getElementById('add-agent-knowledge').addEventListener('click', async function() {
-        if (!openRouter) {
-            showError('SDK Error', 'Please set your OpenRouter API key first');
-            return;
-        }
-
-        const agentId = document.getElementById('agent-knowledge-id').value.trim();
-        const documentsJson = document.getElementById('agent-knowledge-docs').value.trim();
-        
-        if (!agentId) {
-            alert('Please enter an Agent ID');
-            return;
-        }
-        
-        if (!documentsJson) {
-            alert('Please enter knowledge documents');
-            return;
-        }
-        
-        let documents;
-        try {
-            documents = JSON.parse(documentsJson);
-        } catch (error) {
-            alert('Invalid JSON for knowledge documents');
-            return;
-        }
-        
-        const resultContainer = document.getElementById('agent-knowledge-result');
-        resultContainer.innerHTML = '<div class="loading"></div>';
-        
-        try {
-            // Create AIOrchestrator
-            const orchestrator = new AIOrchestrator({
-                apiKey: apiKey,
-                defaultModel: 'anthropic/claude-3-opus'
-            });
-            
-            // Create agent if it doesn't exist
-            orchestrator.createAgent({
-                id: agentId,
-                name: 'Knowledge Agent',
-                description: 'Agent with knowledge base',
-                model: 'anthropic/claude-3-opus'
-            });
-            
-            // Add knowledge to agent
-            const docIds = await orchestrator.addAgentKnowledgeBatch(agentId, documents);
-            
-            resultContainer.innerHTML = `<p>Added ${docIds.length} documents to agent "${agentId}" Chroma knowledge base.</p>`;
-        } catch (error) {
-            console.error('Add agent knowledge error:', error);
-            resultContainer.innerHTML = `<p class="error">Error: ${error.message || 'Failed to add knowledge to agent'}</p>`;
-        }
-    });
-    
-    document.getElementById('search-agent-knowledge').addEventListener('click', async function() {
-        if (!openRouter) {
-            alert('Please set your OpenRouter API key first');
-            return;
-        }
-
-        const agentId = document.getElementById('agent-knowledge-id').value.trim();
-        const query = document.getElementById('agent-knowledge-query').value.trim();
-        
-        if (!agentId) {
-            alert('Please enter an Agent ID');
-            return;
-        }
-        
-        if (!query) {
-            alert('Please enter a search query');
-            return;
-        }
-        
-        const resultContainer = document.getElementById('agent-knowledge-result');
-        resultContainer.innerHTML = '<div class="loading"></div>';
-        
-        try {
-            // Create AIOrchestrator
-            const orchestrator = new AIOrchestrator({
-                apiKey: apiKey,
-                defaultModel: 'anthropic/claude-3-opus'
-            });
-            
-            // Search agent knowledge
-            const results = await orchestrator.searchAgentKnowledge(agentId, query, { limit: 5 });
-            
-            // Display results
-            let resultHtml = `<p>Found ${results.length} results for "${query}" in agent "${agentId}" Chroma knowledge base:</p>`;
-            
-            if (results.length > 0) {
-                resultHtml += '<ul>';
-                results.forEach(result => {
-                    resultHtml += `
-                        <li>
-                            <p><strong>Score:</strong> ${result.score.toFixed(4)}</p>
-                            <p><strong>Content:</strong> ${result.document.content}</p>
-                            <p><strong>Metadata:</strong> ${JSON.stringify(result.document.metadata)}</p>
-                        </li>
-                    `;
-                });
-                resultHtml += '</ul>';
-            } else {
-                resultHtml += '<p>No results found in Chroma. Try adding knowledge to the agent first.</p>';
-            }
-            
-            resultContainer.innerHTML = resultHtml;
-        } catch (error) {
-            console.error('Search agent knowledge error:', error);
-            resultContainer.innerHTML = `<p class="error">Error: ${error.message || 'Failed to search agent knowledge'}</p>`;
-        }
-    });
-    
-    document.getElementById('run-knowledge-workflow').addEventListener('click', async function() {
-        if (!openRouter) {
-            showError('SDK Error', 'Please set your OpenRouter API key first');
-            return;
-        }
-
-        const configJson = document.getElementById('knowledge-workflow-config').value.trim();
-        
-        if (!configJson) {
-            alert('Please enter workflow configuration');
-            return;
-        }
-        
-        let config;
-        try {
-            config = JSON.parse(configJson);
-        } catch (error) {
-            alert('Invalid JSON for workflow configuration');
-            return;
-        }
-        
-        const resultContainer = document.getElementById('knowledge-workflow-result');
-        resultContainer.innerHTML = '<div class="loading"></div>';
-        
-        try {
-            // Create AIOrchestrator
-            const orchestrator = new AIOrchestrator({
-                apiKey: apiKey,
-                defaultModel: 'anthropic/claude-3-opus'
-            });
-            
-            // Create agents
-            const agents = {};
-            for (const agentConfig of config.agents) {
-                const agent = orchestrator.createAgent(agentConfig);
-                agents[agent.id] = agent;
-            }
-            
-            // Create tasks
-            const tasks = {};
-            for (const taskConfig of config.tasks) {
-                const task = orchestrator.createTask(taskConfig);
-                tasks[task.id] = task;
-            }
-            
-            // Create workflow
-            const workflow = orchestrator.createWorkflow({
-                id: config.workflow.id,
-                name: config.workflow.name,
-                tasks: Object.values(tasks),
-                dependencies: config.workflow.dependencies
-            });
-            
-            // Execute workflow
-            resultContainer.innerHTML = '<p>Executing workflow with Chroma knowledge-enabled agents... (this may take a while)</p>';
-            const results = await orchestrator.executeWorkflow(workflow);
-            
-            // Display results
-            let resultHtml = '<h4>Workflow Results:</h4>';
-            
-            for (const [taskId, result] of Object.entries(results)) {
-                resultHtml += `
-                    <div class="task-result">
-                        <h5>Task: ${taskId}</h5>
-                        <p><strong>Agent:</strong> ${result.agentId}</p>
-                        <p><strong>Used Knowledge:</strong> ${result.usedKnowledge ? 'Yes' : 'No'}</p>
-                        ${result.knowledgeCount ? `<p><strong>Knowledge Documents:</strong> ${result.knowledgeCount}</p>` : ''}
-                        <p><strong>Output:</strong></p>
-                        <pre>${result.output}</pre>
-                    </div>
-                `;
-            }
-            
-            resultContainer.innerHTML = resultHtml;
-        } catch (error) {
-            console.error('Knowledge workflow error:', error);
-            resultContainer.innerHTML = `<p class="error">Error: ${error.message || 'Failed to execute knowledge workflow'}</p>`;
-        }
-    });
-
-    // Agent Orchestration
-    document.getElementById('agent-run').addEventListener('click', async function() {
-        if (!openRouter) {
-            showError('SDK Error', 'Please set your OpenRouter API key first');
-            return;
-        }
-
-        const configJson = document.getElementById('agent-config').value.trim();
-        
-        if (!configJson) {
-            alert('Please enter agent configuration');
-            return;
-        }
-        
-        let config;
-        try {
-            config = JSON.parse(configJson);
-        } catch (error) {
-            alert('Invalid JSON for agent configuration');
-            return;
-        }
-        
-        const resultContainer = document.getElementById('agent-result');
-        resultContainer.innerHTML = '<div class="loading"></div>';
-        
-        try {
-            // Create AIOrchestrator
-            const orchestrator = new AIOrchestrator({
-                apiKey: apiKey,
-                defaultModel: 'anthropic/claude-3-opus'
-            });
-            
-            // Create agents
-            const agents = {};
-            for (const agentConfig of config.agents) {
-                const agent = orchestrator.createAgent(agentConfig);
-                agents[agent.id] = agent;
-            }
-            
-            // Create tasks
-            const tasks = {};
-            for (const taskConfig of config.tasks) {
-                const task = orchestrator.createTask(taskConfig);
-                tasks[task.id] = task;
-            }
-            
-            // Create workflow
-            const workflow = orchestrator.createWorkflow({
-                id: config.workflow.id,
-                name: config.workflow.name,
-                tasks: Object.values(tasks),
-                dependencies: config.workflow.dependencies
-            });
-            
-            // Execute workflow
-            resultContainer.innerHTML = '<p>Executing workflow... (this may take a while)</p>';
-            const results = await orchestrator.executeWorkflow(workflow);
-            
-            // Display results
-            let resultHtml = '<h4>Workflow Results:</h4>';
-            
-            for (const [taskId, result] of Object.entries(results)) {
-                resultHtml += `
-                    <div class="task-result">
-                        <h5>Task: ${taskId}</h5>
-                        <p><strong>Output:</strong></p>
-                        <pre>${JSON.stringify(result.output, null, 2)}</pre>
-                    </div>
-                `;
-            }
-            
-            resultContainer.innerHTML = resultHtml;
-        } catch (error) {
-            console.error('Agent orchestration error:', error);
-            resultContainer.innerHTML = `<p class="error">Error: ${error.message || 'Failed to execute workflow'}</p>`;
-        }
-    });
+  } catch (error) {
+    console.error('Application initialization failed:', error);
+    showError('Initialization Error', 'Failed to initialize application. Please try refreshing the page.');
+    return Promise.reject(error);
+  }
 });

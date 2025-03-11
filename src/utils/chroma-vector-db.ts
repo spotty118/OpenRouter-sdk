@@ -168,8 +168,16 @@ export class ChromaVectorDB implements VectorDB {
         searchParams.where = options.filter;
       }
       
+      // Define type for Chroma query results
+      interface ChromaQueryResult {
+        ids: string[][];
+        documents: (string | null)[][];
+        metadatas: (Record<string, any> | null)[][];
+        distances?: number[][];
+      }
+      
       // Perform search
-      let results;
+      let results: ChromaQueryResult;
       if (options.vector) {
         // Vector similarity search
         results = await collection.query({
@@ -190,8 +198,10 @@ export class ChromaVectorDB implements VectorDB {
       return results.ids[0].map((id: string, i: number) => ({
         document: {
           id,
-          content: results.documents[0][i],
-          metadata: results.metadatas[0][i]
+          // Handle null content by providing empty string as fallback
+          content: results.documents[0][i] || '',
+          // Handle null metadata by providing empty object as fallback
+          metadata: results.metadatas[0][i] || {}
         },
         score: results.distances ? 1 - (results.distances[0][i] || 0) : 1
       }));

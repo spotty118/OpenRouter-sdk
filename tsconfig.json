@@ -4,29 +4,24 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true,
     "strict": true,
-    "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
+    "forceConsistentCasingInFileNames": true,
     "outDir": "./dist",
-    "baseUrl": ".",
+    "rootDir": "./src",
+    "allowJs": true,
+    "checkJs": false,
+    "declaration": true,
+    "sourceMap": true,
+    "baseUrl": "./src",
+    "resolveJsonModule": true,
     "paths": {
-      "*": [
-        "node_modules/*",
-        "src/types/*"
-      ]
-    },
-    "lib": [
-      "ES2020",
-      "DOM"
-    ],
-    "resolveJsonModule": true
+      "*": ["*", "*.js", "*.ts"]
+    }
   },
   "include": [
-    "src/**/*"
+    "src/**/*",
+    "package.json"
   ],
   "exclude": [
     "node_modules",

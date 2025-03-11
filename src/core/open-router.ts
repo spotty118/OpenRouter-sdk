@@ -652,7 +652,7 @@ export class OpenRouter {
     
     try {
       const models = await this.listModels();
-      const model = models.data.find(m => m.id === modelId);
+      const model = models.data.find((m: ModelInfo) => m.id === modelId);
       
       if (model) {
         // Cache the result

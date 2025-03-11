@@ -113,7 +113,24 @@ export const validate = (
         }
         
         // Update request with validated and sanitized data
-        req[location as keyof Request] = value;
+        // Need to use type assertion to handle read-only properties
+        if (location === 'body') {
+          req.body = value;
+        } else if (location === 'query') {
+          req.query = value as any;
+        } else if (location === 'params') {
+          req.params = value as any;
+        } else if (location === 'headers') {
+          // For headers, assign individual headers as properties
+          // Express headers object doesn't have a 'set' method, so just use assignment
+          Object.keys(value).forEach(key => {
+            // Use type assertion to bypass readonly restrictions
+            (req.headers as Record<string, any>)[key] = value[key];
+          });
+        } else {
+          // For other locations, use type assertion but be aware this might have issues with read-only properties
+          (req as any)[location] = value;
+        }
       }
       
       // Continue to next middleware or route handler

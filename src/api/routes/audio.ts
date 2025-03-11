@@ -12,6 +12,21 @@ import { OpenRouterError } from '../../errors/openrouter-error.js';
 import { Logger } from '../../utils/logger.js';
 import { AudioTranscriptionRequest, AudioTranscriptionResponse } from '../../interfaces/index.js';
 
+// Extend the Express Request interface to include multer file property
+interface MulterRequest extends Request {
+  file?: {
+    fieldname: string;
+    originalname: string;
+    encoding: string;
+    mimetype: string;
+    size: number;
+    destination?: string;
+    filename?: string;
+    path?: string;
+    buffer: Buffer;
+  };
+}
+
 const router = express.Router();
 const logger = new Logger('info');
 // Create a single instance of OpenRouter to reuse across routes
@@ -31,7 +46,7 @@ const upload = multer({
  * 
  * POST /api/v1/audio/transcriptions
  */
-router.post('/transcriptions', upload.single('file'), async (req: Request, res: Response) => {
+router.post('/transcriptions', upload.single('file'), async (req: MulterRequest, res: Response) => {
   try {
     const apiKey = req.app.locals.apiKey;
     

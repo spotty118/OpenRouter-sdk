@@ -19,6 +19,7 @@ export interface CompletionResponse {
 export interface EmbeddingResponse {
   id: string;
   model: string;
+  object?: string; // Added for compatibility with provider implementations
   data: Array<{
     embedding: number[];
     index: number;

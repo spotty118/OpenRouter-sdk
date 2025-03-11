@@ -1,38 +1,89 @@
 # Dependencies
 node_modules/
-npm-debug.log
-yarn-debug.log
-yarn-error.log
+.npm
+package-lock.json
 
-# Build output
+# Build outputs
 dist/
 build/
+*.tsbuildinfo
 
-# Environment variables
+# Development
 .env
 .env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*.local
+.env.development
+.env.test
+.env.production
 
-# IDE specific files
+# IDE and Editor files
 .idea/
-.vscode/*
-!.vscode/extensions.json
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
+.vscode/
+*.swp
+*.swo
 *.sublime-workspace
 *.sublime-project
-.DS_Store
-
-# Coverage directory
-coverage/
 
 # Logs
 logs
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
 
-# Temp directories
-.tmp/
+# Testing
+coverage/
+.nyc_output/
+
+# Operating System
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Debug
+.debug/
+debug.log
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# dotenv environment variable files
+.env
+.env.test
+.env.production
+
+# Local database files
+*.sqlite
+*.sqlite3
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Temporary files
+tmp/
 temp/
+
+# Error logs
+debug.log
+error.log
