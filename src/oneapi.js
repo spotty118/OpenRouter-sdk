@@ -29,22 +29,25 @@ class OneAPI {
    * @param {Object} config - Configuration options
    */
   constructor(config = {}) {
+    // Safely access environment variables in Node.js or use empty string in browser
+    const env = typeof process !== 'undefined' && process.env ? process.env : {};
+    
     // Configure providers with API keys if provided
     this.providers = {
       openai: new OpenAIProvider({
-        apiKey: config.openaiApiKey || process.env.OPENAI_API_KEY
+        apiKey: config.openaiApiKey || env.OPENAI_API_KEY || ''
       }),
       anthropic: new AnthropicProvider({
-        apiKey: config.anthropicApiKey || process.env.ANTHROPIC_API_KEY
+        apiKey: config.anthropicApiKey || env.ANTHROPIC_API_KEY || ''
       }),
       gemini: new GeminiProvider({
-        apiKey: config.googleApiKey || process.env.GOOGLE_API_KEY
+        apiKey: config.googleApiKey || env.GOOGLE_API_KEY || ''
       }),
       mistral: new MistralProvider({
-        apiKey: config.mistralApiKey || process.env.MISTRAL_API_KEY
+        apiKey: config.mistralApiKey || env.MISTRAL_API_KEY || ''
       }),
       together: new TogetherProvider({
-        apiKey: config.togetherApiKey || process.env.TOGETHER_API_KEY
+        apiKey: config.togetherApiKey || env.TOGETHER_API_KEY || ''
       })
     };
 
@@ -108,6 +111,36 @@ class OneAPI {
    */
   checkProviderConfiguration() {
     return this.checkStatus();
+  }
+  
+  /**
+   * Check if a specific provider has a valid configuration
+   * @param {string} provider - The provider to check
+   * @param {string} key - Optional specific key to check
+   * @returns {boolean} Whether the provider is configured
+   */
+  hasProviderConfig(provider, key = null) {
+    // If provider isn't valid, return false
+    if (!this.providers[provider]) {
+      return false;
+    }
+    
+    // Directly check if the provider has an apiKey to avoid circular reference
+    if (this.providers[provider].apiKey) {
+      return true;
+    }
+    
+    // Safely access environment variables in Node.js, return false in browser
+    if (typeof process !== 'undefined' && process.env) {
+      // Check environment variables as fallback
+      if (provider === 'openai' && process.env.OPENAI_API_KEY) return true;
+      if (provider === 'anthropic' && process.env.ANTHROPIC_API_KEY) return true;
+      if (provider === 'gemini' && process.env.GOOGLE_API_KEY) return true;
+      if (provider === 'mistral' && process.env.MISTRAL_API_KEY) return true;
+      if (provider === 'together' && process.env.TOGETHER_API_KEY) return true;
+    }
+    
+    return false;
   }
   
   /**

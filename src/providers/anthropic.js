@@ -62,6 +62,204 @@ export class AnthropicProvider {
   }
   
   /**
+   * Test the connection to the Anthropic API
+   * This performs a real API call to validate the API key
+   * 
+   * @returns {Promise<Object>} Result with success status and models if available
+   */
+  async testConnection() {
+    // Check if API key is configured
+    if (!this.apiKey) {
+      return { success: false, error: 'No API key configured' };
+    }
+    
+    // Validate API key format - Anthropic keys should start with 'sk-ant-'
+    const keyPattern = /^sk-ant-/;
+    if (!keyPattern.test(this.apiKey)) {
+      console.error('Invalid Anthropic API key format - keys should start with sk-ant-');
+      return { 
+        success: false, 
+        error: 'Invalid API key format - Anthropic API keys should start with sk-ant-' 
+      };
+    }
+    
+    try {
+      // Start tracking metrics if OneAPI is available
+      const trackingId = `anthropic_connection_test_${Date.now()}`;
+      const startTime = Date.now();
+      
+      if (this.oneAPI) {
+        this.oneAPI.trackMetric({
+          id: trackingId,
+          provider: 'anthropic',
+          operation: 'connection_test',
+          status: 'started',
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      // Always use the direct API URL instead of relying on this.baseUrl
+      const apiUrl = 'https://api.anthropic.com/v1/models';
+      console.log('Testing Anthropic API key with models endpoint:', apiUrl);
+      
+      // Construct proper headers for Anthropic API
+      const headers = {
+        'x-api-key': this.apiKey,
+        'anthropic-version': '2023-06-01',
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      };
+      
+      console.log('Using headers:', 
+        JSON.stringify({
+          'x-api-key': this.apiKey.substring(0, 10) + '...',
+          'anthropic-version': headers['anthropic-version'],
+          'Content-Type': headers['Content-Type'],
+          'Accept': headers['Accept']
+        }, null, 2));
+      
+      // Make a direct API call to Anthropic's models endpoint
+      const response = await fetch(apiUrl, {
+        method: 'GET',
+        headers: headers
+      });
+      
+      console.log('Anthropic API response status:', response.status);
+      
+      // Track completion if OneAPI is available
+      if (this.oneAPI) {
+        this.oneAPI.trackMetric({
+          id: trackingId,
+          provider: 'anthropic',
+          operation: 'connection_test',
+          status: response.ok ? 'success' : 'error',
+          duration: Date.now() - startTime,
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      // Read the response text first
+      const responseText = await response.text();
+      console.log('Anthropic API response body (truncated):', responseText.substring(0, 200));
+      
+      // Handle error responses
+      if (!response.ok) {
+        let errorMessage = `API returned status ${response.status}`;
+        let errorData = {};
+        
+        try {
+          errorData = JSON.parse(responseText);
+          errorMessage = errorData.error?.message || errorData.error || errorMessage;
+        } catch (e) {
+          // If parsing fails, use the original response text
+          errorMessage = responseText || errorMessage;
+        }
+        
+        console.error('Anthropic API validation failed:', errorMessage);
+        
+        // Provide specific error message for common error codes
+        if (response.status === 401) {
+          return {
+            success: false,
+            error: 'Authentication failed: Invalid API key or credentials',
+            details: errorMessage,
+            status: response.status
+          };
+        } else if (response.status === 403) {
+          return {
+            success: false,
+            error: 'Authorization failed: API key does not have permission to access this resource',
+            details: errorMessage,
+            status: response.status
+          };
+        } else if (response.status === 429) {
+          return {
+            success: false,
+            error: 'Rate limit exceeded: Too many requests',
+            details: errorMessage,
+            status: response.status
+          };
+        }
+        
+        return { 
+          success: false, 
+          error: errorMessage,
+          status: response.status
+        };
+      }
+      
+      // Try to parse the successful response as JSON
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (e) {
+        console.error('Failed to parse Anthropic API response as JSON:', e.message);
+        return {
+          success: false,
+          error: 'Invalid response format from API'
+        };
+      }
+      
+      // Verify the response has models array - Anthropic API has changed to use 'data' array
+      // The new format is {"data": [...models]} rather than {"models": [...]} 
+      const modelsList = data.data || data.models;
+      
+      if (data && Array.isArray(modelsList)) {
+        console.log('Anthropic API validation succeeded with', modelsList.length, 'models');
+        console.log('Anthropic models format example:', JSON.stringify(modelsList[0]));
+        
+        // Map models to our standard format using our consistent OneAPI pattern
+        const models = modelsList.map(model => ({
+          id: this.mapToOpenRouterModel(model.id) || model.id,
+          name: model.display_name || model.name || model.id,
+          provider: 'anthropic',
+          originalModelId: model.id
+        }));
+        
+        return {
+          success: true,
+          models: models
+        };
+      } else {
+        // We got a response but it's not in the expected format
+        console.error('Unexpected response format from Anthropic API:', JSON.stringify(data).substring(0, 200));
+        return {
+          success: false,
+          error: 'Unexpected API response format',
+          details: `Response doesn't contain expected models array. Format: ${JSON.stringify(Object.keys(data))}`
+        };
+      }
+    } catch (error) {
+      console.error('Error during Anthropic API validation:', error);
+      
+      // Provide more specific error information when possible
+      let errorMessage = error.message;
+      if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+        errorMessage = 'Could not connect to Anthropic API: Network error';
+      } else if (error.code === 'ETIMEDOUT') {
+        errorMessage = 'Connection to Anthropic API timed out';
+      }
+      
+      // Track error if OneAPI is available
+      if (this.oneAPI) {
+        this.oneAPI.trackMetric({
+          id: `anthropic_connection_test_${Date.now()}`,
+          provider: 'anthropic',
+          operation: 'connection_test',
+          status: 'error',
+          error: errorMessage,
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      return {
+        success: false,
+        error: errorMessage
+      };
+    }
+  }
+  
+  /**
    * Map OpenRouter model ID to Anthropic model
    * 
    * @param {string} openRouterModelId - OpenRouter model ID

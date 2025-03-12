@@ -24,7 +24,16 @@ export class OpenAIProvider {
    * Check if provider is properly configured
    */
   isConfigured() {
-    return !!this.apiKey || this.oneAPI.hasProviderConfig('openai');
+    // Return true if we have a direct API key
+    if (this.apiKey) return true;
+    
+    // Check if oneAPI is initialized and has the provider config
+    if (this.oneAPI && typeof this.oneAPI.hasProviderConfig === 'function') {
+      return this.oneAPI.hasProviderConfig('openai');
+    }
+    
+    // If we can't determine, assume not configured
+    return false;
   }
 
   /**

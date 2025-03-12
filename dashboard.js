@@ -3,8 +3,8 @@
  * Interactive dashboard that showcases all available SDK functions and agents
  */
 
-// Import OneAPIClient
-import OneAPIClient from './src/client/OneAPIClient.js';
+// No need to import OneAPIClient - we now use dashboardOneAPIConnector
+// which is globally available from our script tag in dashboard.html
 
 // Import AgentWizard and OrchestratorWizard directly
 import { AgentWizard } from './src/core/AgentWizard.js';
@@ -59,11 +59,8 @@ async function initWizards() {
   }
 }
 
-// Initialize OneAPI client
-const apiClient = new OneAPIClient('');
-
-// Log that OneAPI client is initialized
-console.log('OneAPI client initialized');
+// Our OneAPI connector is already initialized in dashboard.html
+console.log('Using dashboardOneAPIConnector for API interactions');
 
 // Initialize dashboard
 document.addEventListener('DOMContentLoaded', function() {
@@ -115,7 +112,8 @@ const connectionStatus = document.getElementById('connection-status');
 // Function to check API status
 async function checkApiStatus() {
   try {
-    const statusData = await apiClient.getStatus();
+    // Use dashboardOneAPIConnector instead of apiClient
+    const statusData = await dashboardOneAPIConnector.getStatus();
     console.log('API Status:', statusData);
     
     // Check if we have any valid API connections
@@ -238,15 +236,15 @@ async function updateAllApiKeys() {
       updateButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Updating...';
     }
     
-    // Send keys to the server
-    const result = await apiClient.updateApiKeys(keys);
+    // Use our OneAPI connector to update keys
+    const result = await dashboardOneAPIConnector.updateApiKeys(keys);
     
     if (result.success) {
       showToast('Success', 'API keys updated successfully', 'success');
       
       // Update provider statuses
       if (result.status) {
-        updateProviderStatuses(result.status.providers || {});
+        updateProviderStatuses(result.status || {});
       }
     } else {
       showToast('Error', 'Failed to update API keys: ' + (result.error || 'Unknown error'), 'error');
@@ -291,14 +289,37 @@ async function testApiKeyConnection(provider) {
       testButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Testing...';
     }
     
-    // Create a single-key update
-    const keys = {};
-    keys[`${provider}Key`] = keyInput.value;
+    // For Anthropic, validate the key format first
+    if (provider === 'anthropic') {
+      const apiKey = keyInput.value;
+      if (!apiKey || !apiKey.startsWith('sk-ant-')) {
+        showToast('Error', 'Invalid Anthropic API key format. Keys should start with sk-ant-', 'error');
+        
+        // Update provider status
+        const statusElement = document.getElementById(`${provider}-status`);
+        if (statusElement) {
+          statusElement.textContent = 'Invalid Format';
+          statusElement.className = 'badge bg-danger';
+        }
+        return;
+      }
+    }
     
-    // Send just this key to the server
-    const result = await apiClient.updateApiKeys(keys);
+    console.log(`Testing ${provider} connection with key: ${keyInput.value.substring(0, 10)}...`);
     
-    if (result.success && result.status?.providers?.[provider]?.connected) {
+    // Test the API key via our OneAPI connector
+    const result = await dashboardOneAPIConnector.testProviderConnection(provider, keyInput.value);
+    console.log(`${provider} test result:`, result);
+    
+    // Show additional debug for Anthropic
+    if (provider === 'anthropic') {
+      console.log('Anthropic API key test details:', {
+        success: result.success,
+        modelsCount: result.models?.length || 0
+      });
+    }
+    
+    if (result.success) {
       showToast('Success', `${provider.charAt(0).toUpperCase() + provider.slice(1)} API key is valid!`, 'success');
       
       // Update provider status
@@ -307,8 +328,20 @@ async function testApiKeyConnection(provider) {
         statusElement.textContent = 'Connected';
         statusElement.className = 'badge bg-success';
       }
+      
+      // For Anthropic, let's try to directly update the status
+      if (provider === 'anthropic') {
+        // Refresh the API status to update the UI
+        await dashboardOneAPIConnector.getStatus();
+      }
     } else {
-      showToast('Warning', `${provider.charAt(0).toUpperCase() + provider.slice(1)} API key may not be valid or service is unavailable`, 'warning');
+      // More detailed error for Anthropic
+      if (provider === 'anthropic') {
+        const errorMsg = result.error || 'API key validation failed';
+        showToast('Warning', `Anthropic API key validation issue: ${errorMsg}`, 'warning');
+      } else {
+        showToast('Warning', `${provider.charAt(0).toUpperCase() + provider.slice(1)} API key may not be valid or service is unavailable`, 'warning');
+      }
       
       // Update provider status
       const statusElement = document.getElementById(`${provider}-status`);
@@ -798,29 +831,29 @@ async function executeFunction(functionName) {
         // Show loading indicator
         showToast('Processing', `Executing ${functionName}...`, 'info');
         
-        // Determine agent type based on function name and execute via API
+        // Determine agent type based on function name and execute via OneAPI
         let result;
-        if (functionName.includes('Agent') || functionName.endsWith('agent')) {
-            // Extract agent type from function name
-            const agentType = functionName.replace('Agent', '').toLowerCase();
-            try {
-                // Use API client to call the appropriate agent endpoint
-                result = await apiClient.executeAgent(agentType, params);
-            } catch (error) {
-                console.error(`Error executing agent via API:`, error);
-                // Fall back to wizard if API fails
-                if (wizard && typeof wizard.execute === 'function') {
-                    result = await wizard.execute(functionName, params);
-                } else {
-                    throw error;
-                }
+        try {
+            // Use our OneAPI connector to execute the function or agent
+            if (functionName.includes('Agent') || functionName.endsWith('agent')) {
+                // For agent execution
+                const agentType = functionName.replace('Agent', '').toLowerCase();
+                console.log(`Executing agent via OneAPI: ${agentType}`);
+                result = await dashboardOneAPIConnector.executeAgent(agentType, params);
+            } else {
+                // For regular function execution
+                console.log(`Executing function via OneAPI: ${functionName}`);
+                result = await dashboardOneAPIConnector.executeFunction(functionName, params);
             }
-        } else if (wizard && typeof wizard.execute === 'function') {
-            // Use local wizard implementation
-            result = await wizard.execute(functionName, params);
-        } else {
-            // Cannot execute without SDK
-            throw new Error('SDK not initialized. Please ensure the SDK is properly loaded to execute functions.');
+        } catch (error) {
+            console.error(`Error executing via OneAPI:`, error);
+            // Fall back to wizard if OneAPI fails
+            if (wizard && typeof wizard.execute === 'function') {
+                console.log(`Falling back to wizard execution for: ${functionName}`);
+                result = await wizard.execute(functionName, params);
+            } else {
+                throw error;
+            }
         }
         
         // Display result in a toast
@@ -882,10 +915,27 @@ let chatMessages = [];
 let isStreamingResponse = false; // Track if we're currently streaming a response
 let stopStreaming = false; // Flag to stop streaming when requested
 
+// Define API client for OneAPI integration with Anthropic
+let apiClient = null;
+
 // Initialize Claude provider with configuration settings
 function initClaudeProvider() {
   const claudeApiKey = document.getElementById('claude-api-key').value;
   const googleApiKey = document.getElementById('google-api-key').value;
+  
+  // Initialize API client for OneAPI integration
+  // This leverages the OneAPI integration work we've done
+  apiClient = {
+    createChatCompletion: async (request) => {
+      try {
+        // Use dashboardOneAPIConnector to create a chat completion through Anthropic
+        return await dashboardOneAPIConnector.createChatCompletion('anthropic', request);
+      } catch (error) {
+        console.error('Error calling OneAPI for chat completion:', error);
+        throw error;
+      }
+    }
+  };
   const googleCseId = document.getElementById('google-cse-id').value;
   const enableSearch = document.getElementById('enable-search').checked;
   const maxSearchResults = parseInt(document.getElementById('max-search-results').value, 10) || 3;
