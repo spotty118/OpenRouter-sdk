@@ -27,13 +27,22 @@
                         <a class="nav-link active" id="functions-tab-link" data-bs-toggle="tab" href="#functions-tab" role="tab" aria-controls="functions-tab" aria-selected="true">Functions</a>
                     </li>
                     <li class="nav-item" role="presentation">
+                        <a class="nav-link" id="api-keys-tab-link" data-bs-toggle="tab" href="#api-keys-tab" role="tab" aria-controls="api-keys-tab" aria-selected="false">API Keys</a>
+                    </li>
+                    <li class="nav-item" role="presentation">
                         <a class="nav-link" id="agents-tab-link" data-bs-toggle="tab" href="#agents-tab" role="tab" aria-controls="agents-tab" aria-selected="false">Agents</a>
                     </li>
                     <li class="nav-item" role="presentation">
                         <a class="nav-link" id="integrations-tab-link" data-bs-toggle="tab" href="#integrations-tab" role="tab" aria-controls="integrations-tab" aria-selected="false">Integrations</a>
                     </li>
                     <li class="nav-item" role="presentation">
+                        <a class="nav-link" id="metrics-tab-link" data-bs-toggle="tab" href="#metrics-tab" role="tab" aria-controls="metrics-tab" aria-selected="false">Metrics</a>
+                    </li>
+                    <li class="nav-item" role="presentation">
                         <a class="nav-link" id="chat-tab-link" data-bs-toggle="tab" href="#chat-tab" role="tab" aria-controls="chat-tab" aria-selected="false">Chat Test</a>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <a class="nav-link" id="claude-search-tab-link" data-bs-toggle="tab" href="#claude-search-tab" role="tab" aria-controls="claude-search-tab" aria-selected="false">Claude + Search</a>
                     </li>
                 </ul>
                 <span class="ms-auto navbar-text text-white">
@@ -141,9 +150,157 @@
                     </div>
                 </div>
                 
+                <!-- API Keys Tab -->
+                <div class="tab-pane fade" id="api-keys-tab" role="tabpanel" aria-labelledby="api-keys-tab-link">
+                    <!-- API Keys Section -->
+                    <div class="card mb-4">
+                        <div class="card-header bg-white">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">
+                                    <i class="bi bi-key-fill me-2"></i>
+                                    API Keys Management
+                                </h5>
+                                <button class="btn btn-primary" id="update-all-keys">
+                                    <i class="bi bi-check-circle me-1"></i>
+                                    Update All Keys
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle-fill me-2"></i>
+                                Configure your API keys to connect with various language model providers.
+                            </div>
+                            
+                            <div class="row g-4" id="api-keys-form">
+                                <!-- OpenAI -->
+                                <div class="col-md-6">
+                                    <div class="card h-100">
+                                        <div class="card-header d-flex justify-content-between align-items-center">
+                                            <h6 class="mb-0">OpenAI</h6>
+                                            <span class="badge bg-secondary" id="openai-status">Not Configured</span>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="mb-3">
+                                                <label for="openai-key" class="form-label">API Key</label>
+                                                <div class="input-group">
+                                                    <input type="password" class="form-control api-key-input" id="openai-key" placeholder="sk-...">
+                                                    <button class="btn btn-outline-secondary toggle-api-key" type="button">
+                                                        <i class="bi bi-eye"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div class="d-grid">
+                                                <button class="btn btn-primary test-api-key" data-provider="openai">Test Connection</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Anthropic -->
+                                <div class="col-md-6">
+                                    <div class="card h-100">
+                                        <div class="card-header d-flex justify-content-between align-items-center">
+                                            <h6 class="mb-0">Anthropic</h6>
+                                            <span class="badge bg-secondary" id="anthropic-status">Not Configured</span>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="mb-3">
+                                                <label for="anthropic-key" class="form-label">API Key</label>
+                                                <div class="input-group">
+                                                    <input type="password" class="form-control api-key-input" id="anthropic-key" placeholder="sk-ant-...">
+                                                    <button class="btn btn-outline-secondary toggle-api-key" type="button">
+                                                        <i class="bi bi-eye"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div class="d-grid">
+                                                <button class="btn btn-primary test-api-key" data-provider="anthropic">Test Connection</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Google AI -->
+                                <div class="col-md-6">
+                                    <div class="card h-100">
+                                        <div class="card-header d-flex justify-content-between align-items-center">
+                                            <h6 class="mb-0">Google AI</h6>
+                                            <span class="badge bg-secondary" id="google-status">Not Configured</span>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="mb-3">
+                                                <label for="google-key" class="form-label">API Key</label>
+                                                <div class="input-group">
+                                                    <input type="password" class="form-control api-key-input" id="google-key" placeholder="AIza...">
+                                                    <button class="btn btn-outline-secondary toggle-api-key" type="button">
+                                                        <i class="bi bi-eye"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div class="d-grid">
+                                                <button class="btn btn-primary test-api-key" data-provider="google">Test Connection</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Mistral AI -->
+                                <div class="col-md-6">
+                                    <div class="card h-100">
+                                        <div class="card-header d-flex justify-content-between align-items-center">
+                                            <h6 class="mb-0">Mistral AI</h6>
+                                            <span class="badge bg-secondary" id="mistral-status">Not Configured</span>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="mb-3">
+                                                <label for="mistral-key" class="form-label">API Key</label>
+                                                <div class="input-group">
+                                                    <input type="password" class="form-control api-key-input" id="mistral-key" placeholder="">
+                                                    <button class="btn btn-outline-secondary toggle-api-key" type="button">
+                                                        <i class="bi bi-eye"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div class="d-grid">
+                                                <button class="btn btn-primary test-api-key" data-provider="mistral">Test Connection</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Together AI -->
+                                <div class="col-md-6">
+                                    <div class="card h-100">
+                                        <div class="card-header d-flex justify-content-between align-items-center">
+                                            <h6 class="mb-0">Together AI</h6>
+                                            <span class="badge bg-secondary" id="together-status">Not Configured</span>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="mb-3">
+                                                <label for="together-key" class="form-label">API Key</label>
+                                                <div class="input-group">
+                                                    <input type="password" class="form-control api-key-input" id="together-key" placeholder="">
+                                                    <button class="btn btn-outline-secondary toggle-api-key" type="button">
+                                                        <i class="bi bi-eye"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div class="d-grid">
+                                                <button class="btn btn-primary test-api-key" data-provider="together">Test Connection</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Agents Tab -->
                 <div class="tab-pane fade" id="agents-tab" role="tabpanel" aria-labelledby="agents-tab-link">
-                    <div class="card">
+                    <!-- Agents Section -->
+                    <div class="card mb-4">
                         <div class="card-header bg-white">
                             <div class="d-flex justify-content-between align-items-center">
                                 <h5 class="mb-0">
@@ -159,6 +316,27 @@
                         <div class="card-body">
                             <div class="row" id="agents-container">
                                 <!-- Agent cards will be loaded here -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Workflows Section -->
+                    <div class="card">
+                        <div class="card-header bg-white">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">
+                                    <i class="bi bi-diagram-3 me-2"></i>
+                                    AI Workflows
+                                </h5>
+                                <button class="btn btn-primary btn-sm" id="create-workflow">
+                                    <i class="bi bi-plus-lg me-1"></i>
+                                    New Workflow
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="row" id="workflows-container">
+                                <!-- Workflow cards will be loaded here -->
                             </div>
                         </div>
                     </div>
@@ -181,6 +359,334 @@
                             </div>
                         </div>
                     </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Claude Search Integration Tab -->
+                <div class="tab-pane fade" id="claude-search-tab" role="tabpanel" aria-labelledby="claude-search-tab-link">
+                    <div class="card">
+                        <div class="card-header bg-white">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">
+                                    <img src="https://assets-global.website-files.com/64f6f2c0e3f4c2a1a06dbe55/650354c214571086e2b8782c_Anthropic_logo.svg" alt="Claude" style="height: 24px; margin-right: 10px;">
+                                    Claude with Google Search
+                                </h5>
+                                <span class="badge bg-success">Ready</span>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="row mb-4">
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-header bg-light">
+                                            <h6 class="mb-0">API Configuration</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="mb-3">
+                                                <label for="claude-api-key" class="form-label">Claude API Key</label>
+                                                <div class="input-group">
+                                                    <input type="password" class="form-control" id="claude-api-key" placeholder="Enter Anthropic API key">
+                                                    <button class="btn btn-outline-secondary" type="button" id="toggle-claude-key">
+                                                        <i class="bi bi-eye"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="google-api-key" class="form-label">Google Search API Key</label>
+                                                <div class="input-group">
+                                                    <input type="password" class="form-control" id="google-api-key" placeholder="Enter Google API key">
+                                                    <button class="btn btn-outline-secondary" type="button" id="toggle-google-key">
+                                                        <i class="bi bi-eye"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="google-cse-id" class="form-label">Google Search Engine ID</label>
+                                                <input type="text" class="form-control" id="google-cse-id" placeholder="Enter Custom Search Engine ID">
+                                            </div>
+                                            <div class="d-grid">
+                                                <button class="btn btn-primary" type="button" id="save-claude-config">Save Configuration</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-header bg-light">
+                                            <h6 class="mb-0">Model Settings</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="mb-3">
+                                                <label for="claude-model" class="form-label">Claude Model</label>
+                                                <select class="form-select" id="claude-model">
+                                                    <option value="anthropic/claude-3-opus-20240229">Claude 3 Opus</option>
+                                                    <option value="anthropic/claude-3-sonnet-20240229" selected>Claude 3 Sonnet</option>
+                                                    <option value="anthropic/claude-3-haiku-20240307">Claude 3 Haiku</option>
+                                                </select>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="temperature" class="form-label">Temperature: <span id="temp-value">0.7</span></label>
+                                                <input type="range" class="form-range" min="0" max="1" step="0.1" value="0.7" id="temperature">
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="max-tokens" class="form-label">Max Tokens</label>
+                                                <input type="number" class="form-control" id="max-tokens" value="1024" min="1" max="4096">
+                                            </div>
+                                            <div class="form-check form-switch mb-3">
+                                                <input class="form-check-input" type="checkbox" id="enable-search" checked>
+                                                <label class="form-check-label" for="enable-search">Enable Web Search</label>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="max-search-results" class="form-label">Max Search Results</label>
+                                                <input type="number" class="form-control" id="max-search-results" value="5" min="1" max="10">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Chat Interface -->
+                            <div class="card">
+                                <div class="card-header bg-light">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <h6 class="mb-0">Chat Interface</h6>
+                                        <div>
+                                            <div class="dropdown d-inline-block me-2">
+                                                <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="exportChatDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                                    <i class="bi bi-download me-1"></i>Export
+                                                </button>
+                                                <ul class="dropdown-menu" aria-labelledby="exportChatDropdown">
+                                                    <li><a class="dropdown-item" href="#" id="export-chat-md">Export as Markdown</a></li>
+                                                    <li><a class="dropdown-item" href="#" id="export-chat-json">Export as JSON</a></li>
+                                                    <li><hr class="dropdown-divider"></li>
+                                                    <li><a class="dropdown-item" href="#" id="export-chat-html">Export as HTML</a></li>
+                                                </ul>
+                                            </div>
+                                            <button class="btn btn-sm btn-outline-secondary me-2" id="clear-chat">
+                                                <i class="bi bi-trash me-1"></i>Clear Chat
+                                            </button>
+                                            <div class="form-check form-switch d-inline-block ms-2">
+                                                <input class="form-check-input" type="checkbox" id="streaming-toggle" checked>
+                                                <label class="form-check-label" for="streaming-toggle">Streaming</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <div class="chat-container mb-3" id="chat-messages" style="height: 400px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 0.25rem; padding: 1rem; background-color: #f8f9fa;">
+                                        <div class="system-message">
+                                            <div class="alert alert-light border">
+                                                <strong>System:</strong> Claude is ready with Google Search capabilities. Ask a question that might benefit from current information from the web.
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="input-group">
+                                        <textarea class="form-control" id="user-input" rows="2" placeholder="Ask Claude something..."></textarea>
+                                        <button class="btn btn-primary" type="button" id="send-message">
+                                            <i class="bi bi-send me-1"></i>Send
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Test Search Directly -->
+                            <div class="card mt-4">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">Test Google Search Directly</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-9">
+                                            <div class="input-group mb-3">
+                                                <input type="text" class="form-control" id="search-query" placeholder="Enter search query...">
+                                                <button class="btn btn-secondary" type="button" id="run-search">
+                                                    <i class="bi bi-search me-1"></i>Search
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <select class="form-select" id="search-format">
+                                                <option value="simple">Simple Format</option>
+                                                <option value="detailed">Detailed Format</option>
+                                                <option value="markdown">Markdown Format</option>
+                                                <option value="claude">Claude-optimized</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="mt-3">
+                                        <pre class="search-results p-3 bg-light" id="search-results" style="max-height: 300px; overflow-y: auto; border-radius: 0.25rem;">Search results will appear here...</pre>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Metrics Tab -->
+                <div class="tab-pane fade" id="metrics-tab" role="tabpanel" aria-labelledby="metrics-tab-link">
+                    <div class="card">
+                        <div class="card-header bg-white">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">
+                                    <i class="bi bi-graph-up me-2"></i>
+                                    OneAPI Metrics Dashboard
+                                </h5>
+                                <div>
+                                    <button class="btn btn-outline-primary btn-sm" id="refresh-metrics">
+                                        <i class="bi bi-arrow-repeat me-1"></i> Refresh
+                                    </button>
+                                    <button class="btn btn-outline-secondary btn-sm ms-2" id="export-metrics">
+                                        <i class="bi bi-download me-1"></i> Export
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="alert alert-info mb-4">
+                                <i class="bi bi-info-circle-fill me-2"></i>
+                                Track usage, performance, and cost metrics across all providers enhanced with OneAPI integration.
+                            </div>
+                            
+                            <!-- Metrics Overview Cards -->
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-3">
+                                    <div class="card bg-light border-0">
+                                        <div class="card-body">
+                                            <h6 class="text-muted mb-2">Total Requests</h6>
+                                            <h3 class="mb-0" id="total-requests">0</h3>
+                                            <p class="text-muted small mb-0">Last 24 hours</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card bg-light border-0">
+                                        <div class="card-body">
+                                            <h6 class="text-muted mb-2">Input Tokens</h6>
+                                            <h3 class="mb-0" id="input-tokens">0</h3>
+                                            <p class="text-muted small mb-0">Last 24 hours</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card bg-light border-0">
+                                        <div class="card-body">
+                                            <h6 class="text-muted mb-2">Output Tokens</h6>
+                                            <h3 class="mb-0" id="output-tokens">0</h3>
+                                            <p class="text-muted small mb-0">Last 24 hours</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card bg-light border-0">
+                                        <div class="card-body">
+                                            <h6 class="text-muted mb-2">Avg Response Time</h6>
+                                            <h3 class="mb-0" id="avg-response-time">0ms</h3>
+                                            <p class="text-muted small mb-0">Last 24 hours</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Metrics by Provider -->
+                            <div class="card mb-4">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">Metrics by Provider</h6>
+                                </div>
+                                <div class="card-body">
+                                    <canvas id="provider-metrics-chart" style="height: 250px; width: 100%;"></canvas>
+                                    <div class="table-responsive mt-3">
+                                        <table class="table table-sm table-hover" id="provider-metrics-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Provider</th>
+                                                    <th>Requests</th>
+                                                    <th>Input Tokens</th>
+                                                    <th>Output Tokens</th>
+                                                    <th>Avg. Time</th>
+                                                    <th>Success Rate</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr>
+                                                    <td>OpenAI</td>
+                                                    <td>0</td>
+                                                    <td>0</td>
+                                                    <td>0</td>
+                                                    <td>0ms</td>
+                                                    <td>0%</td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Anthropic</td>
+                                                    <td>0</td>
+                                                    <td>0</td>
+                                                    <td>0</td>
+                                                    <td>0ms</td>
+                                                    <td>0%</td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Google Gemini</td>
+                                                    <td>0</td>
+                                                    <td>0</td>
+                                                    <td>0</td>
+                                                    <td>0ms</td>
+                                                    <td>0%</td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Mistral</td>
+                                                    <td>0</td>
+                                                    <td>0</td>
+                                                    <td>0</td>
+                                                    <td>0ms</td>
+                                                    <td>0%</td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Together</td>
+                                                    <td>0</td>
+                                                    <td>0</td>
+                                                    <td>0</td>
+                                                    <td>0ms</td>
+                                                    <td>0%</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Recent Activity & Errors -->
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="card h-100">
+                                        <div class="card-header bg-light">
+                                            <h6 class="mb-0">Recent Operations</h6>
+                                        </div>
+                                        <div class="card-body p-0">
+                                            <div class="list-group list-group-flush" id="recent-operations">
+                                                <div class="empty-state p-4 text-center text-muted">
+                                                    <i class="bi bi-clock-history d-block mb-3" style="font-size: 2rem;"></i>
+                                                    <p>No recent operations to display</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="card h-100">
+                                        <div class="card-header bg-light">
+                                            <h6 class="mb-0">Error Log</h6>
+                                        </div>
+                                        <div class="card-body p-0">
+                                            <div class="list-group list-group-flush" id="error-log">
+                                                <div class="empty-state p-4 text-center text-muted">
+                                                    <i class="bi bi-exclamation-triangle d-block mb-3" style="font-size: 2rem;"></i>
+                                                    <p>No errors recorded</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -432,7 +938,134 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.7.0/lib/highlight.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.7.0/styles/github.css">
+    
+    <!-- AgentWizard and OrchestratorWizard class definitions -->
+    <script>
+    // AgentWizard class definition
+    class AgentWizard {
+      constructor() {
+        this.agents = new Map();
+        this.providers = new Map();
+        this.templates = new Map();
+        this.registerDefaultTemplates();
+      }
+
+      registerDefaultTemplates() {
+        // Researcher template
+        this.registerTemplate('researcher', {
+          name: 'Research Agent',
+          description: 'AI agent that conducts web searches and synthesizes information',
+          icon: 'bi-search',
+          color: 'primary',
+          basePrompt: 'You are a research assistant that provides thorough and accurate information.',
+          defaultTools: ['web_search', 'summarize'],
+          parameters: {
+            topic: { type: 'string', required: true, description: 'Research topic' },
+            depth: { type: 'select', required: false, description: 'Research depth', options: ['basic', 'standard', 'deep'] },
+            format: { type: 'select', required: false, description: 'Output format', options: ['summary', 'bullet_points', 'detailed'] }
+          }
+        });
+      }
+
+      registerTemplate(id, template) {
+        this.templates.set(id, template);
+        return true;
+      }
+
+      loadState() {
+        // Simplified implementation
+        try {
+          const stateJSON = localStorage.getItem('openrouter_agent_wizard_state');
+          if (stateJSON) {
+            const state = JSON.parse(stateJSON);
+            if (state.agents) {
+              this.agents = new Map(Object.entries(state.agents));
+            }
+          } else {
+            this.registerExampleAgents();
+          }
+          return true;
+        } catch (error) {
+          console.error('Failed to load state:', error);
+          return false;
+        }
+      }
+
+      saveState() {
+        // Simplified implementation
+        try {
+          const agentsObj = {};
+          this.agents.forEach((agent, id) => { agentsObj[id] = agent; });
+          localStorage.setItem('openrouter_agent_wizard_state', JSON.stringify({
+            agents: agentsObj
+          }));
+          return true;
+        } catch (error) {
+          console.error('Failed to save state:', error);
+          return false;
+        }
+      }
+
+      registerExampleAgents() {
+        // Just a stub for now
+        console.log('Registering example agents');
+      }
+
+      getAgents() {
+        return Array.from(this.agents.values());
+      }
+    }
+
+    // OrchestratorWizard class definition
+    class OrchestratorWizard {
+      constructor() {
+        this.workflows = new Map();
+      }
+    }
+    </script>
+    
+    <!-- External Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Import OneAPI and Client -->
+    <script type="module">
+        import OneAPI from './src/oneapi.js';
+        window.OneAPI = OneAPI;
+    </script>
+    
+    <!-- OneAPI Client Integration -->
+    <script src="src/client/OneAPIClient.js"></script>
+    <script src="src/client/one-api-bridge.js"></script>
+    <script src="metrics.js"></script>
+    
+    <!-- Main Dashboard Script -->
     <script src="dashboard.js"></script>
+    
+    <script>
+      // Initialize syntax highlighting if available
+      if (window.hljs) {
+        document.addEventListener('DOMContentLoaded', () => {
+          hljs.configure({ languages: ['javascript', 'typescript', 'python', 'html', 'css', 'json'] });
+          // We'll handle highlighting inside the updateChatMessage function
+        });
+      }
+      
+      // Set up marked.js options
+      if (typeof marked !== 'undefined') {
+        marked.setOptions({
+          breaks: true,        // Add line breaks as <br>
+          gfm: true,           // GitHub Flavored Markdown
+          headerIds: true,     // Add IDs to headers
+          mangle: false,       // Don't escape HTML
+          sanitize: false,     // Don't sanitize HTML (we do this ourselves)
+          smartLists: true,    // Smarter list behavior
+          smartypants: true,   // Smart typographic punctuation
+          xhtml: false         // Don't use XHTML-style self-closing tags
+        });
+      }
+    </script>
     <style>
         /* CSS Variables */
         :root {
@@ -613,6 +1246,91 @@
         .tab-pane {
             height: 100%;
             padding-bottom: 1rem;
+        }
+        
+        /* Markdown and code styling */
+        .markdown-content {
+            line-height: 1.6;
+        }
+        
+        .markdown-content pre {
+            margin: 1rem 0;
+            border-radius: 6px;
+            background-color: #f8f9fa;
+            overflow-x: auto;
+        }
+        
+        .markdown-content code {
+            font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: 0.875em;
+            border-radius: 4px;
+            padding: 0.2em 0.4em;
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+        
+        .markdown-content pre code {
+            display: block;
+            padding: 1rem;
+            background-color: transparent;
+            font-size: 0.85rem;
+            line-height: 1.45;
+            overflow-x: auto;
+            white-space: pre;
+            word-wrap: normal;
+        }
+        
+        /* Typing indicator styling */
+        .typing-indicator {
+            display: inline-flex;
+            align-items: center;
+        }
+        
+        .typing-indicator span {
+            height: 8px;
+            width: 8px;
+            margin: 0 2px;
+            background-color: #3B82F6;
+            display: block;
+            border-radius: 50%;
+            opacity: 0.4;
+            animation: typing 1s infinite ease-in-out;
+        }
+        
+        .typing-indicator span:nth-child(1) {
+            animation-delay: 0s;
+        }
+        
+        .typing-indicator span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        
+        .typing-indicator span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+        
+        @keyframes typing {
+            0% {
+                opacity: 0.4;
+                transform: scale(1);
+            }
+            50% {
+                opacity: 1;
+                transform: scale(1.2);
+            }
+            100% {
+                opacity: 0.4;
+                transform: scale(1);
+            }
+        }
+        
+        /* Character counter styling */
+        .char-counter {
+            text-align: right;
+            color: #6c757d;
+            font-size: 0.75rem;
+            margin-top: 0.5rem;
+            border-top: 1px solid #eee;
+            padding-top: 0.25rem;
         }
         
         .card {

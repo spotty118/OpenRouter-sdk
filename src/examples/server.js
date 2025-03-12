@@ -9,6 +9,58 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const port = process.env.PORT || 3000;
 
+// Path to API keys storage
+const API_KEYS_PATH = path.join(__dirname, '../../data/api-keys.js');
+
+// Function to load API keys
+async function loadApiKeys() {
+  try {
+    // Import API keys from file
+    const apiKeysModule = await import(`../../data/api-keys.js?timestamp=${Date.now()}`);
+    const apiKeys = apiKeysModule.default;
+    
+    // Set environment variables from loaded keys
+    if (apiKeys.openaiKey) process.env.OPENAI_API_KEY = apiKeys.openaiKey;
+    if (apiKeys.anthropicKey) process.env.ANTHROPIC_API_KEY = apiKeys.anthropicKey;
+    if (apiKeys.googleKey) process.env.GOOGLE_API_KEY = apiKeys.googleKey;
+    if (apiKeys.mistralKey) process.env.MISTRAL_API_KEY = apiKeys.mistralKey;
+    if (apiKeys.togetherKey) process.env.TOGETHER_API_KEY = apiKeys.togetherKey;
+    
+    console.log('API keys loaded successfully:', Object.keys(apiKeys).filter(k => apiKeys[k]).join(', '));
+    return apiKeys;
+  } catch (error) {
+    console.warn('Failed to load API keys:', error.message);
+    return {};
+  }
+}
+
+// Function to save API keys
+async function saveApiKeys(keys) {
+  try {
+    const content = `/**
+ * Persistent API Key Storage for OpenRouter SDK
+ */
+
+export default {
+  openaiKey: "${keys.openaiKey || ''}",
+  anthropicKey: "${keys.anthropicKey || ''}",
+  googleKey: "${keys.googleKey || ''}",
+  mistralKey: "${keys.mistralKey || ''}",
+  togetherKey: "${keys.togetherKey || ''}"
+};`;
+
+    fs.writeFileSync(API_KEYS_PATH, content, 'utf8');
+    console.log('API keys saved successfully');
+    return true;
+  } catch (error) {
+    console.error('Failed to save API keys:', error);
+    return false;
+  }
+}
+
+// Load API keys at startup
+await loadApiKeys();
+
 // Serve compiled files from dist directory
 app.use('/dist', express.static(path.join(__dirname, '../../dist')));
 
@@ -43,6 +95,72 @@ app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
     next();
+});
+
+// Add body parser middleware
+app.use(express.json());
+
+// API endpoint for updating API keys
+app.post('/api/update-keys', async (req, res) => {
+  try {
+    const { openaiKey, anthropicKey, googleKey, mistralKey, togetherKey } = req.body;
+    
+    // Update environment variables
+    if (openaiKey) process.env.OPENAI_API_KEY = openaiKey;
+    if (anthropicKey) process.env.ANTHROPIC_API_KEY = anthropicKey;
+    if (googleKey) process.env.GOOGLE_API_KEY = googleKey;
+    if (mistralKey) process.env.MISTRAL_API_KEY = mistralKey;
+    if (togetherKey) process.env.TOGETHER_API_KEY = togetherKey;
+    
+    // Save keys to persistent storage
+    const saveResult = await saveApiKeys({
+      openaiKey, anthropicKey, googleKey, mistralKey, togetherKey
+    });
+    
+    // Return success response
+    res.json({
+      success: true,
+      message: 'API keys updated and saved successfully',
+      persistentSave: saveResult
+    });
+  } catch (error) {
+    console.error('Error updating API keys:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
+// API endpoint for status check
+app.get('/api/status', (req, res) => {
+  // Return provider status based on environment variables
+  const status = {
+    providers: {
+      openai: {
+        connected: !!process.env.OPENAI_API_KEY,
+        available: !!process.env.OPENAI_API_KEY
+      },
+      anthropic: {
+        connected: !!process.env.ANTHROPIC_API_KEY,
+        available: !!process.env.ANTHROPIC_API_KEY
+      },
+      google: {
+        connected: !!process.env.GOOGLE_API_KEY,
+        available: !!process.env.GOOGLE_API_KEY
+      },
+      mistral: {
+        connected: !!process.env.MISTRAL_API_KEY,
+        available: !!process.env.MISTRAL_API_KEY
+      },
+      together: {
+        connected: !!process.env.TOGETHER_API_KEY,
+        available: !!process.env.TOGETHER_API_KEY
+      }
+    }
+  };
+  
+  res.json(status);
 });
 
 // Log all requests for debugging
@@ -133,10 +251,10 @@ app.listen(port, () => {
     console.log('- Node Version:', process.version);
     console.log('- Working Directory:', process.cwd());
     console.log('- Server Directory:', __dirname);
-    console.log('- TypeScript Config:', fs.existsSync('tsconfig.json') ? 'Found' : 'Missing');
-    console.log('- Dist Directory:', fs.existsSync('dist') ? 'Found' : 'Missing');
+    console.log('- TypeScript Config:', fs.existsSync(path.join(__dirname, '../../tsconfig.json')) ? 'Found' : 'Not Found');
+    console.log('- Dist Directory:', fs.existsSync(path.join(__dirname, '../../dist')) ? 'Found' : 'Not Found');
     
-    if (!fs.existsSync('dist')) {
+    if (!fs.existsSync(path.join(__dirname, '../../dist'))) {
         console.warn('\nWARNING: dist directory not found. Please run "npm run build" first.');
     }
 });

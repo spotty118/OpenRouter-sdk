@@ -6,19 +6,73 @@
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
 import { OpenAIProvider } from './providers/openai.js';
 import { AnthropicProvider } from './providers/anthropic.js';
 import { GeminiProvider } from './providers/google-gemini.js';
 import { MistralProvider } from './providers/mistral.js';
 import { TogetherProvider } from './providers/together.js';
+import { getOneAPI } from './oneapi.js';
 
 // Get the current directory path (ES modules don't have __dirname)
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Path to API keys storage
+const API_KEYS_PATH = path.join(__dirname, '../data/api-keys.js');
+
+// Function to load API keys
+async function loadApiKeys() {
+  try {
+    // Import API keys from file
+    const apiKeysModule = await import(`../data/api-keys.js?timestamp=${Date.now()}`);
+    const apiKeys = apiKeysModule.default;
+    
+    // Set environment variables from loaded keys
+    if (apiKeys.openaiKey) process.env.OPENAI_API_KEY = apiKeys.openaiKey;
+    if (apiKeys.anthropicKey) process.env.ANTHROPIC_API_KEY = apiKeys.anthropicKey;
+    if (apiKeys.googleKey) process.env.GOOGLE_API_KEY = apiKeys.googleKey;
+    if (apiKeys.mistralKey) process.env.MISTRAL_API_KEY = apiKeys.mistralKey;
+    if (apiKeys.togetherKey) process.env.TOGETHER_API_KEY = apiKeys.togetherKey;
+    
+    console.log('API keys loaded successfully:', Object.keys(apiKeys).filter(k => apiKeys[k]).join(', '));
+    return apiKeys;
+  } catch (error) {
+    console.warn('Failed to load API keys:', error.message);
+    return {};
+  }
+}
+
+// Function to save API keys
+async function saveApiKeys(keys) {
+  try {
+    const content = `/**
+ * Persistent API Key Storage for OpenRouter SDK
+ */
+
+export default {
+  openaiKey: "${keys.openaiKey || ''}",
+  anthropicKey: "${keys.anthropicKey || ''}",
+  googleKey: "${keys.googleKey || ''}",
+  mistralKey: "${keys.mistralKey || ''}",
+  togetherKey: "${keys.togetherKey || ''}"
+};`;
+
+    fs.writeFileSync(API_KEYS_PATH, content, 'utf8');
+    console.log('API keys saved successfully');
+    return true;
+  } catch (error) {
+    console.error('Failed to save API keys:', error);
+    return false;
+  }
+}
+
 // Create Express app
 const app = express();
 const PORT = process.env.PORT || 3000; // Changed to port 3000 to match default expectations
+
+// Load API keys at startup
+await loadApiKeys();
 
 // Initialize providers
 const openai = new OpenAIProvider({
@@ -41,8 +95,25 @@ const together = new TogetherProvider({
   apiKey: process.env.TOGETHER_API_KEY
 });
 
+// Initialize OneAPI with all providers
+const oneAPI = getOneAPI({
+  openaiApiKey: process.env.OPENAI_API_KEY,
+  anthropicApiKey: process.env.ANTHROPIC_API_KEY,
+  googleApiKey: process.env.GOOGLE_API_KEY,
+  mistralApiKey: process.env.MISTRAL_API_KEY,
+  togetherApiKey: process.env.TOGETHER_API_KEY
+});
+
 // Middleware
 app.use(express.json());
+
+// Set correct MIME type for JavaScript modules
+app.use((req, res, next) => {
+  if (req.url.endsWith('.js')) {
+    res.setHeader('Content-Type', 'application/javascript; charset=UTF-8');
+  }
+  next();
+});
 
 // Routes - define before static middleware to ensure they take precedence
 app.get('/', (req, res) => {
@@ -70,13 +141,7 @@ app.get('/chat', (req, res) => {
 
 // API endpoint for status check
 app.get('/api/status', (req, res) => {
-  const status = {
-    openai: openai.isConfigured(),
-    anthropic: anthropic.isConfigured(),
-    google: gemini.isConfigured(),
-    mistral: mistral.isConfigured(),
-    together: together.isConfigured()
-  };
+  const status = oneAPI.checkStatus();
   
   // Log the status for debugging
   console.log('API Status:', status);
@@ -84,224 +149,299 @@ app.get('/api/status', (req, res) => {
   res.json(status);
 });
 
+// API endpoint for updating API keys
+app.post('/api/update-keys', async (req, res) => {
+  try {
+    const { openaiKey, anthropicKey, googleKey, mistralKey, togetherKey } = req.body;
+    
+    // Update environment variables
+    if (openaiKey) process.env.OPENAI_API_KEY = openaiKey;
+    if (anthropicKey) process.env.ANTHROPIC_API_KEY = anthropicKey;
+    if (googleKey) process.env.GOOGLE_API_KEY = googleKey;
+    if (mistralKey) process.env.MISTRAL_API_KEY = mistralKey;
+    if (togetherKey) process.env.TOGETHER_API_KEY = togetherKey;
+    
+    // Save keys to persistent storage
+    const saveResult = await saveApiKeys({
+      openaiKey, anthropicKey, googleKey, mistralKey, togetherKey
+    });
+    
+    // Reinitialize OneAPI with updated keys
+    Object.assign(oneAPI, getOneAPI({
+      openaiApiKey: process.env.OPENAI_API_KEY,
+      anthropicApiKey: process.env.ANTHROPIC_API_KEY,
+      googleApiKey: process.env.GOOGLE_API_KEY,
+      mistralApiKey: process.env.MISTRAL_API_KEY,
+      togetherApiKey: process.env.TOGETHER_API_KEY
+    }));
+    
+    // Return the new status
+    const status = oneAPI.checkStatus();
+    res.json({
+      success: true,
+      message: 'API keys updated and saved successfully',
+      persistentSave: saveResult,
+      status
+    });
+  } catch (error) {
+    console.error('Error updating API keys:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
 // API endpoint for models listing
-app.get('/api/v1/models', (req, res) => {
-  // Create a mock response with available models
-  const models = {
-    data: [
-      {
-        id: 'openai/gpt-3.5-turbo',
-        name: 'GPT-3.5 Turbo',
-        context_length: 4096,
-        pricing: { prompt: 0.5, completion: 1.5 }
-      },
-      {
-        id: 'openai/gpt-4',
-        name: 'GPT-4',
-        context_length: 8192,
-        pricing: { prompt: 15, completion: 30 }
-      },
-      {
-        id: 'anthropic/claude-3-opus',
-        name: 'Claude 3 Opus',
-        context_length: 100000,
-        pricing: { prompt: 15, completion: 75 }
-      },
-      {
-        id: 'anthropic/claude-3-sonnet',
-        name: 'Claude 3 Sonnet',
-        context_length: 200000,
-        pricing: { prompt: 3, completion: 15 }
-      },
-      {
-        id: 'google/gemini-1.5-pro',
-        name: 'Gemini 1.5 Pro',
-        context_length: 1000000,
-        pricing: { prompt: 3.5, completion: 10.5 }
-      },
-      {
-        id: 'mistral/mistral-large',
-        name: 'Mistral Large',
-        context_length: 32768,
-        pricing: { prompt: 2.7, completion: 8.1 }
-      },
-      {
-        id: 'mistral/mistral-medium',
-        name: 'Mistral Medium',
-        context_length: 32768,
-        pricing: { prompt: 0.27, completion: 0.81 }
-      },
-      {
-        id: 'together/llama-3-70b-instruct',
-        name: 'Llama 3 70B Instruct',
-        context_length: 32768,
-        pricing: { prompt: 0.9, completion: 2.7 }
-      }
-    ]
-  };
-  
-  res.json(models);
+app.get('/api/v1/models', async (req, res) => {
+  try {
+    const models = await oneAPI.listModels();
+    res.json(models);
+  } catch (error) {
+    console.error('Error listing models:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Chat completion endpoint
 app.post('/api/chat', async (req, res) => {
   try {
-    const { model, messages, temperature = 0.7, maxTokens = 1000 } = req.body;
+    const { model, messages, temperature = 0.7, maxTokens = 1000, ...rest } = req.body;
     
-    // Route to appropriate provider based on model prefix
-    let response;
-    if (model.startsWith('openai/')) {
-      response = await openai.createChatCompletion({
-        model: model.replace('openai/', ''),
-        messages,
-        temperature,
-        max_tokens: maxTokens
-      });
-    } else if (model.startsWith('anthropic/')) {
-      response = await anthropic.createChatCompletion({
-        model: model.replace('anthropic/', ''),
-        messages,
-        temperature,
-        max_tokens: maxTokens
-      });
-    } else if (model.startsWith('google/')) {
-      response = await gemini.createChatCompletion({
-        model: model.replace('google/', ''),
-        messages,
-        temperature,
-        max_tokens: maxTokens
-      });
-    } else if (model.startsWith('mistral/')) {
-      response = await mistral.createChatCompletion({
-        model: model.replace('mistral/', ''),
-        messages,
-        temperature,
-        max_tokens: maxTokens
-      });
-    } else if (model.startsWith('together/')) {
-      response = await together.createChatCompletion({
-        model: model.replace('together/', ''),
-        messages,
-        temperature,
-        max_tokens: maxTokens
-      });
-    } else {
-      throw new Error(`Unsupported model provider: ${model}`);
-    }
+    // Use OneAPI to handle chat completion with any provider
+    const response = await oneAPI.createChatCompletion({
+      model,
+      messages,
+      temperature,
+      maxTokens,
+      ...rest
+    });
     
     res.json(response);
   } catch (error) {
     console.error('Error in chat completion:', error);
-    res.status(500).json({ error: error.message });
+    
+    // Preserve all OpenRouterError properties if available
+    const statusCode = error.statusCode || 500;
+    const errorResponse = {
+      error: {
+        message: error.message,
+        type: error.type || 'server_error',
+        code: error.code || 'internal_error',
+        param: error.param,
+        requestId: error.requestId,
+        provider: error.provider,
+        model: error.model,
+        timestamp: new Date().toISOString()
+      }
+    };
+    
+    res.status(statusCode).json(errorResponse);
   }
 });
 
 // Stream chat completion endpoint
 app.post('/api/chat/stream', async (req, res) => {
   try {
-    const { model, messages, temperature = 0.7, maxTokens = 1000 } = req.body;
+    const { model, messages, temperature = 0.7, maxTokens = 1000, ...rest } = req.body;
     
     // Set up SSE headers
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     
-    // Route to appropriate provider based on model prefix
-    let stream;
-    if (model.startsWith('openai/')) {
-      stream = await openai.createChatCompletionStream({
-        model: model.replace('openai/', ''),
-        messages,
-        temperature,
-        max_tokens: maxTokens
-      });
-    } else if (model.startsWith('anthropic/')) {
-      stream = await anthropic.createChatCompletionStream({
-        model: model.replace('anthropic/', ''),
-        messages,
-        temperature,
-        max_tokens: maxTokens
-      });
-    } else if (model.startsWith('google/')) {
-      stream = await gemini.createChatCompletionStream({
-        model: model.replace('google/', ''),
-        messages,
-        temperature,
-        max_tokens: maxTokens
-      });
-    } else if (model.startsWith('mistral/')) {
-      stream = await mistral.createChatCompletionStream({
-        model: model.replace('mistral/', ''),
-        messages,
-        temperature,
-        max_tokens: maxTokens
-      });
-    } else if (model.startsWith('together/')) {
-      stream = await together.createChatCompletionStream({
-        model: model.replace('together/', ''),
-        messages,
-        temperature,
-        max_tokens: maxTokens
-      });
-    } else {
-      throw new Error(`Unsupported model provider: ${model}`);
-    }
+    // Use OneAPI to handle streaming chat completion
+    const streamGenerator = await oneAPI.createChatCompletionStream({
+      model,
+      messages,
+      temperature,
+      maxTokens,
+      ...rest
+    });
     
-    // Pipe the stream to response
-    stream.pipe(res);
+    // Convert async generator to stream if needed
+    if (streamGenerator[Symbol.asyncIterator]) {
+      // Handle async generator pattern
+      (async () => {
+        try {
+          for await (const chunk of streamGenerator) {
+            const data = JSON.stringify(chunk);
+            res.write(`data: ${data}\n\n`);
+          }
+          res.write('data: [DONE]\n\n');
+          res.end();
+        } catch (streamError) {
+          const errorObj = {
+            error: {
+              message: streamError.message,
+              type: streamError.type || 'server_error',
+              code: streamError.code || 'stream_error',
+              provider: streamError.provider,
+              model: streamError.model,
+              timestamp: new Date().toISOString()
+            }
+          };
+          res.write(`data: ${JSON.stringify(errorObj)}\n\n`);
+          res.end();
+        }
+      })();
+    } else {
+      // Handle traditional Node.js stream
+      streamGenerator.pipe(res);
+    }
     
     // Handle client disconnect
     req.on('close', () => {
       stream.destroy();
     });
   } catch (error) {
-    console.error('Error in stream creation:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Error in streaming chat completion:', error);
+    
+    // Send structured error as SSE
+    const errorObj = {
+      error: {
+        message: error.message,
+        type: error.type || 'server_error',
+        code: error.code || 'stream_initialization_error',
+        param: error.param,
+        requestId: error.requestId,
+        provider: error.provider,
+        model: error.model,
+        timestamp: new Date().toISOString()
+      }
+    };
+    
+    res.write(`data: ${JSON.stringify(errorObj)}\n\n`);
+    res.end();
   }
 });
 
 // Compare models endpoint
 app.post('/api/compare', async (req, res) => {
   try {
-    const { prompt, models } = req.body;
-    const results = [];
+    const { prompt, models, temperature = 0.7, maxTokens = 1000 } = req.body;
     
-    // Process each model in parallel
-    await Promise.all(models.map(async (model) => {
-      try {
-        const response = await fetch(`http://localhost:${PORT}/api/chat`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model,
-            messages: [{ role: 'user', content: prompt }],
-            temperature: 0.7,
-            maxTokens: 1000
-          })
-        });
-        
-        if (!response.ok) {
-          throw new Error(`API error: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        results.push({
-          model,
-          content: data.choices[0].message.content,
-          error: null
-        });
-      } catch (error) {
-        results.push({
-          model,
-          content: null,
-          error: error.message
-        });
-      }
-    }));
+    // Use OneAPI for model comparison
+    const results = await oneAPI.compareModels({
+      prompt,
+      models,
+      temperature,
+      maxTokens
+    });
     
     res.json({ results });
   } catch (error) {
     console.error('Error in model comparison:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Agent endpoints
+// Research Agent endpoint
+app.post('/api/agents/research', async (req, res) => {
+  try {
+    const { topic, depth = 3, format = 'summary' } = req.body;
+    const results = await oneAPI.agents.research.execute({ topic, depth, format });
+    res.json(results);
+  } catch (error) {
+    console.error('Research Agent error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Analysis Agent endpoint
+app.post('/api/agents/analysis', async (req, res) => {
+  try {
+    const { data, metrics, visualize = false } = req.body;
+    const results = await oneAPI.agents.analysis.execute({ data, metrics, visualize });
+    res.json(results);
+  } catch (error) {
+    console.error('Analysis Agent error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Chat Agent endpoint
+app.post('/api/agents/chat', async (req, res) => {
+  try {
+    const { message, context = '', personality = 'helpful' } = req.body;
+    const results = await oneAPI.agents.chat.execute({ message, context, personality });
+    res.json(results);
+  } catch (error) {
+    console.error('Chat Agent error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Automation Agent endpoint
+app.post('/api/agents/automation', async (req, res) => {
+  try {
+    const { tasks, dependencies = {}, parallel = false } = req.body;
+    const results = await oneAPI.agents.automation.execute({ tasks, dependencies, parallel });
+    res.json(results);
+  } catch (error) {
+    console.error('Automation Agent error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Learning Agent endpoint
+app.post('/api/agents/learning', async (req, res) => {
+  try {
+    const { input, feedback = [], persist = true } = req.body;
+    const results = await oneAPI.agents.learning.execute({ input, feedback, persist });
+    res.json(results);
+  } catch (error) {
+    console.error('Learning Agent error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Tool endpoints
+// Vector Store tool endpoint
+app.post('/api/tools/vectorstore', async (req, res) => {
+  try {
+    const { operation, data } = req.body;
+    const results = await oneAPI.tools.vectorStore.execute({ operation, data });
+    res.json(results);
+  } catch (error) {
+    console.error('Vector Store tool error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// LLM Router tool endpoint
+app.post('/api/tools/llmrouter', async (req, res) => {
+  try {
+    const { content, requirements } = req.body;
+    const results = await oneAPI.tools.llmRouter.execute({ content, requirements });
+    res.json(results);
+  } catch (error) {
+    console.error('LLM Router tool error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Embeddings endpoint
+app.post('/api/embeddings', async (req, res) => {
+  try {
+    const { text, model = 'openai/text-embedding-ada-002' } = req.body;
+    const embedding = await oneAPI.createEmbedding({ text, model });
+    res.json(embedding);
+  } catch (error) {
+    console.error('Embedding error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Image generation endpoint
+app.post('/api/images/generate', async (req, res) => {
+  try {
+    const { prompt, model = 'openai/dall-e-3', size = '1024x1024', n = 1 } = req.body;
+    const images = await oneAPI.generateImage({ prompt, model, size, n });
+    res.json(images);
+  } catch (error) {
+    console.error('Image generation error:', error);
     res.status(500).json({ error: error.message });
   }
 });

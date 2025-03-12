@@ -3,9 +3,16 @@
  * 
  * This module provides utilities for collecting, storing, and retrieving
  * metrics about API usage, performance, and errors.
+ * 
+ * Integrated with OneAPI for comprehensive monitoring across all services.
  */
 
-// Simple in-memory metrics store
+import oneapiModule from '../oneapi.js';
+
+/**
+ * MetricsStore - A class for tracking and analyzing API usage metrics
+ * Integrated with OneAPI for centralized metrics collection
+ */
 class MetricsStore {
   constructor(options = {}) {
     this.maxSize = options.maxSize || 1000;
@@ -18,119 +25,236 @@ class MetricsStore {
     this.endpoints = new Map();
     this.responseTimes = [];
     this.tokenUsage = [];
+    this.sessions = new Map();
+    this.providers = new Map();
     
     // Set up cleanup interval
     const cleanupInterval = options.cleanupInterval || 10 * 60 * 1000; // 10 minutes
     setInterval(() => this.cleanup(), cleanupInterval);
+    
+    // Initialize OneAPI connection
+    try {
+      this.oneAPI = oneapiModule.getOneAPI();
+      this.syncWithOneAPI();
+      
+      // Set up metrics sync interval if enabled
+      if (options.syncWithOneAPI !== false) {
+        const syncInterval = options.syncInterval || 5 * 60 * 1000; // 5 minutes
+        setInterval(() => this.syncWithOneAPI(), syncInterval);
+      }
+    } catch (error) {
+      console.warn('OneAPI not available for metrics, using local tracking only:', error);
+      this.oneAPI = null;
+    }
   }
-  
+
   /**
    * Record a new API request
-   * @param {Object} data - Request data to record
+   * @param {Object} data - Request data
    */
   recordRequest(data) {
-    const timestamp = Date.now();
+    // Ensure we have all necessary data
+    if (!data) return;
     
-    // Basic request data
+    const timestamp = Date.now();
     const request = {
-      id: data.requestId,
       timestamp,
-      method: data.method,
-      path: data.path,
-      statusCode: data.statusCode,
-      responseTime: data.responseTime,
-      ip: data.ip,
-      userAgent: data.userAgent,
-      authenticated: !!data.authenticated
+      ...data
     };
     
-    // Add to requests list with size limit
-    this.requests.unshift(request);
-    if (this.requests.length > this.maxSize) {
-      this.requests.pop();
-    }
+    // Store request data
+    this.requests.push(request);
     
-    // Update endpoint stats
-    this.updateEndpointStats(data.path, data.statusCode, data.responseTime);
-    
-    // Record model usage if applicable
+    // Track by model
     if (data.model) {
-      this.updateModelStats(data.model, data.tokenUsage);
+      this.trackModelUsage(data.model, data.provider, data.tokenUsage);
     }
     
-    // Record response time
-    this.responseTimes.push({
-      timestamp,
-      value: data.responseTime
-    });
+    // Track by provider
+    if (data.provider) {
+      this.updateProviderStats(
+        data.provider, 
+        data.status || 200, 
+        data.responseTime || 0, 
+        data.tokenUsage
+      );
+    }
     
-    // Record token usage if applicable
-    if (data.tokenUsage) {
-      this.tokenUsage.push({
+    // Track by endpoint
+    if (data.endpoint) {
+      this.trackEndpointUsage(data.endpoint);
+    }
+    
+    // Track by session
+    if (data.sessionId) {
+      this.updateSessionStats(
+        data.sessionId, 
+        data.agentType, 
+        data.model, 
+        data.tokenUsage
+      );
+    }
+    
+    // Track response time
+    if (data.responseTime) {
+      this.responseTimes.push({
         timestamp,
-        promptTokens: data.tokenUsage.promptTokens || 0,
-        completionTokens: data.tokenUsage.completionTokens || 0,
-        totalTokens: data.tokenUsage.totalTokens || 0,
+        responseTime: data.responseTime,
+        endpoint: data.endpoint,
+        provider: data.provider,
         model: data.model
       });
     }
     
-    return request;
-  }
-  
-  /**
-   * Record an error
-   * @param {Object} data - Error data to record
-   */
-  recordError(data) {
-    const timestamp = Date.now();
-    
-    // Format error data
-    const error = {
-      id: data.requestId,
-      timestamp,
-      path: data.path,
-      method: data.method,
-      statusCode: data.statusCode,
-      errorType: data.errorType,
-      message: data.message,
-      ip: data.ip
-    };
-    
-    // Add to errors list with size limit
-    this.errors.unshift(error);
-    if (this.errors.length > this.maxSize) {
-      this.errors.pop();
+    // Track token usage
+    if (data.tokenUsage) {
+      this.tokenUsage.push({
+        timestamp,
+        ...data.tokenUsage,
+        provider: data.provider,
+        model: data.model
+      });
     }
     
-    return error;
+    // Keep data within size limits
+    this.cleanup();
+    
+    // Send metrics to OneAPI if available
+    if (this.oneAPI) {
+      try {
+        this.oneAPI.reportMetrics({
+          timestamp,
+          ...data
+        });
+      } catch (error) {
+        console.warn('Failed to report metrics to OneAPI:', error);
+      }
+    }
   }
   
   /**
-   * Update endpoint statistics
-   * @param {string} path - API endpoint path
+   * Record an error event
+   * @param {Object} data - Error data
+   */
+  recordError(data) {
+    if (!data) return;
+    
+    const timestamp = Date.now();
+    const error = {
+      timestamp,
+      ...data
+    };
+    
+    // Store error data
+    this.errors.push(error);
+    
+    // Keep data within size limits
+    if (this.errors.length > this.maxSize) {
+      this.errors = this.errors.slice(-Math.floor(this.maxSize / 2));
+    }
+    
+    // Report to OneAPI if available
+    if (this.oneAPI) {
+      try {
+        this.oneAPI.reportError({
+          timestamp,
+          ...data
+        });
+      } catch (e) {
+        console.warn('Failed to report error to OneAPI:', e);
+      }
+    }
+  }
+  
+  /**
+   * Track model usage statistics
+   * @param {string} model - Model identifier
+   * @param {string} provider - Provider identifier
+   * @param {Object} tokenUsage - Token usage data
+   */
+  trackModelUsage(model, provider, tokenUsage = {}) {
+    if (!this.models.has(model)) {
+      this.models.set(model, {
+        count: 0,
+        promptTokens: 0,
+        completionTokens: 0,
+        totalTokens: 0,
+        provider: provider || 'unknown',
+        providerUsage: {}
+      });
+    }
+    
+    const stats = this.models.get(model);
+    stats.count++;
+    
+    // Track token usage
+    if (tokenUsage) {
+      stats.promptTokens += tokenUsage.promptTokens || 0;
+      stats.completionTokens += tokenUsage.completionTokens || 0;
+      stats.totalTokens += tokenUsage.totalTokens || 0;
+    }
+    
+    // Track usage by provider
+    if (provider) {
+      if (!stats.providerUsage[provider]) {
+        stats.providerUsage[provider] = {
+          count: 0,
+          tokens: 0
+        };
+      }
+      
+      stats.providerUsage[provider].count++;
+      
+      if (tokenUsage && tokenUsage.totalTokens) {
+        stats.providerUsage[provider].tokens += tokenUsage.totalTokens;
+      }
+    }
+  }
+  
+  /**
+   * Track endpoint usage statistics
+   * @param {string} endpoint - Endpoint identifier
+   */
+  trackEndpointUsage(endpoint) {
+    if (!this.endpoints.has(endpoint)) {
+      this.endpoints.set(endpoint, {
+        count: 0,
+        lastUsed: Date.now()
+      });
+    }
+    
+    const stats = this.endpoints.get(endpoint);
+    stats.count++;
+    stats.lastUsed = Date.now();
+  }
+  
+  /**
+   * Update provider usage statistics
+   * @param {string} provider - Provider identifier
    * @param {number} statusCode - HTTP status code
    * @param {number} responseTime - Response time in ms
+   * @param {Object} tokenUsage - Token usage data
    */
-  updateEndpointStats(path, statusCode, responseTime) {
-    if (!this.endpoints.has(path)) {
-      this.endpoints.set(path, {
+  updateProviderStats(provider, statusCode = 200, responseTime = 0, tokenUsage = {}) {
+    if (!this.providers.has(provider)) {
+      this.providers.set(provider, {
         count: 0,
         errors: 0,
-        totalTime: 0,
-        avgTime: 0,
-        minTime: Infinity,
-        maxTime: 0,
+        totalTokens: 0,
+        promptTokens: 0,
+        completionTokens: 0,
+        totalResponseTime: 0,
+        avgResponseTime: 0,
         statusCodes: {}
       });
     }
     
-    const stats = this.endpoints.get(path);
+    const stats = this.providers.get(provider);
     stats.count++;
-    stats.totalTime += responseTime;
-    stats.avgTime = stats.totalTime / stats.count;
-    stats.minTime = Math.min(stats.minTime, responseTime);
-    stats.maxTime = Math.max(stats.maxTime, responseTime);
+    
+    // Track response time
+    stats.totalResponseTime += responseTime;
+    stats.avgResponseTime = stats.totalResponseTime / stats.count;
     
     // Track status code distribution
     const statusKey = Math.floor(statusCode / 100) + 'xx';
@@ -140,26 +264,8 @@ class MetricsStore {
     if (statusCode >= 400) {
       stats.errors++;
     }
-  }
-  
-  /**
-   * Update model usage statistics
-   * @param {string} model - Model identifier
-   * @param {Object} tokenUsage - Token usage data
-   */
-  updateModelStats(model, tokenUsage = {}) {
-    if (!this.models.has(model)) {
-      this.models.set(model, {
-        count: 0,
-        promptTokens: 0,
-        completionTokens: 0,
-        totalTokens: 0
-      });
-    }
     
-    const stats = this.models.get(model);
-    stats.count++;
-    
+    // Track token usage
     if (tokenUsage) {
       stats.promptTokens += tokenUsage.promptTokens || 0;
       stats.completionTokens += tokenUsage.completionTokens || 0;
@@ -168,258 +274,213 @@ class MetricsStore {
   }
   
   /**
-   * Clean up old metrics data based on retention period
+   * Update session statistics
+   * @param {string} sessionId - Session identifier
+   * @param {string} agentType - Type of agent used
+   * @param {string} model - Model identifier
+   * @param {Object} tokenUsage - Token usage data
    */
-  cleanup() {
-    const cutoff = Date.now() - this.retention;
+  updateSessionStats(sessionId, agentType = null, model = null, tokenUsage = {}) {
+    if (!this.sessions.has(sessionId)) {
+      this.sessions.set(sessionId, {
+        lastActive: Date.now(),
+        firstActive: Date.now(),
+        requestCount: 0,
+        totalTokens: 0,
+        models: [],
+        agents: [],
+        tokenHistory: []
+      });
+    }
     
-    // Clean up requests
-    this.requests = this.requests.filter(req => req.timestamp >= cutoff);
+    const session = this.sessions.get(sessionId);
+    session.lastActive = Date.now();
+    session.requestCount++;
     
-    // Clean up errors
-    this.errors = this.errors.filter(err => err.timestamp >= cutoff);
-    
-    // Clean up response times
-    this.responseTimes = this.responseTimes.filter(rt => rt.timestamp >= cutoff);
-    
-    // Clean up token usage
-    this.tokenUsage = this.tokenUsage.filter(tu => tu.timestamp >= cutoff);
-  }
-  
-  /**
-   * Get summary statistics for dashboard
-   * @returns {Object} Summary metrics
-   */
-  getSummary() {
-    try {
-      const now = Date.now();
-      const last24h = now - (24 * 60 * 60 * 1000);
-      const last1h = now - (60 * 60 * 1000);
+    // Track token usage
+    if (tokenUsage) {
+      const totalTokens = tokenUsage.totalTokens || 0;
+      session.totalTokens += totalTokens;
       
-      // Filter requests for different time windows
-      const requests24h = this.requests.filter(req => req.timestamp >= last24h);
-      const requests1h = requests24h.filter(req => req.timestamp >= last1h);
-      
-      // Calculate error rates
-      const errors24h = this.errors.filter(err => err.timestamp >= last24h);
-      const errors1h = errors24h.filter(err => err.timestamp >= last1h);
-      
-      // Calculate success/error ratios
-      const successRate24h = requests24h.length ? 
-        (requests24h.length - errors24h.length) / requests24h.length * 100 : 100;
-      const successRate1h = requests1h.length ? 
-        (requests1h.length - errors1h.length) / requests1h.length * 100 : 100;
-      
-      // Calculate performance metrics
-      const responseTimes24h = this.responseTimes.filter(rt => rt.timestamp >= last24h);
-      let avgResponseTime = 0;
-      if (responseTimes24h.length) {
-        avgResponseTime = responseTimes24h.reduce((sum, rt) => sum + rt.value, 0) / responseTimes24h.length;
-      }
-      
-      // Get top endpoints (safely handle empty collections)
-      let topEndpoints = [];
-      try {
-        topEndpoints = Array.from(this.endpoints.entries() || [])
-          .sort((a, b) => b[1].count - a[1].count)
-          .slice(0, 5)
-          .map(([path, stats]) => ({
-            path,
-            count: stats.count || 0,
-            errors: stats.errors || 0,
-            avgTime: stats.avgTime || 0
-          }));
-      } catch (e) {
-        topEndpoints = [];
-      }
-      
-      // Get top models (safely handle empty collections)
-      let topModels = [];
-      try {
-        topModels = Array.from(this.models.entries() || [])
-          .sort((a, b) => b[1].count - a[1].count)
-          .slice(0, 5)
-          .map(([model, stats]) => ({
-            model,
-            count: stats.count || 0, 
-            totalTokens: stats.totalTokens || 0
-          }));
-      } catch (e) {
-        topModels = [];
-      }
-      
-      // Get top errors (safely handle empty collections)
-      let topErrors = [];
-      try {
-        topErrors = Array.from(this.errors || [])
-          .slice(0, 5)
-          .map(err => ({
-            timestamp: err.timestamp || Date.now(),
-            path: err.path || '',
-            statusCode: err.statusCode || 500,
-            errorType: err.errorType || 'UNKNOWN',
-            message: err.message || 'No message'
-          }));
-      } catch (e) {
-        topErrors = [];
-      }
-      
-      // Calculate token usage
-      const tokenUsage24h = this.tokenUsage.filter(tu => tu.timestamp >= last24h);
-      const totalTokens24h = tokenUsage24h.reduce((sum, tu) => sum + (tu.totalTokens || 0), 0);
-    
-    return {
-      timestamp: now,
-      requests: {
-        total: this.requests.length || 0,
-        last24h: requests24h.length || 0,
-        last1h: requests1h.length || 0,
-        successRate24h: isNaN(successRate24h) ? 100 : successRate24h,
-        successRate1h: isNaN(successRate1h) ? 100 : successRate1h
-      },
-      errors: {
-        total: this.errors.length || 0,
-        last24h: errors24h.length || 0,
-        last1h: errors1h.length || 0,
-        topErrors: topErrors || []
-      },
-      performance: {
-        avgResponseTime: isNaN(avgResponseTime) ? 0 : avgResponseTime,
-        topEndpoints: topEndpoints || []
-      },
-      models: {
-        total: (this.models && this.models.size) || 0,
-        topModels: topModels || []
-      },
-      tokens: {
-        last24h: totalTokens24h || 0
-      }
-    };
-    } catch (error) {
-      // Provide fallback data in case of any error
-      console.error('Error generating metrics summary:', error);
-      return {
+      // Add to token history
+      session.tokenHistory.push({
         timestamp: Date.now(),
-        requests: { total: 0, last24h: 0, last1h: 0, successRate24h: 100, successRate1h: 100 },
-        errors: { total: 0, last24h: 0, last1h: 0, topErrors: [] },
-        performance: { avgResponseTime: 0, topEndpoints: [] },
-        models: { total: 0, topModels: [] },
-        tokens: { last24h: 0 }
-      };
+        tokens: totalTokens,
+        model: model
+      });
+      
+      // Keep token history at reasonable size
+      if (session.tokenHistory.length > 100) {
+        session.tokenHistory.shift();
+      }
+    }
+    
+    // Track models used
+    if (model && !session.models.includes(model)) {
+      session.models.push(model);
+    }
+    
+    // Track agent types used
+    if (agentType && !session.agents.includes(agentType)) {
+      session.agents.push(agentType);
     }
   }
   
   /**
-   * Get detailed metrics for a specific time range
-   * @param {Object} options - Query options
-   * @returns {Object} Detailed metrics
+   * Clean up old data to maintain size limits
    */
-  getDetailedMetrics(options = {}) {
-    const {
-      startTime = Date.now() - (24 * 60 * 60 * 1000),
-      endTime = Date.now(),
-      interval = 'hour' // 'minute', 'hour', 'day'
-    } = options;
+  cleanup() {
+    const now = Date.now();
     
-    // Filter by time range
-    const filteredRequests = this.requests.filter(
-      req => req.timestamp >= startTime && req.timestamp <= endTime
-    );
+    // Clean up requests data
+    if (this.requests.length > this.maxSize) {
+      this.requests = this.requests.slice(-Math.floor(this.maxSize / 2));
+    }
     
-    const filteredErrors = this.errors.filter(
-      err => err.timestamp >= startTime && err.timestamp <= endTime
-    );
+    // Clean up old response times
+    if (this.responseTimes.length > this.maxSize) {
+      this.responseTimes = this.responseTimes.slice(-Math.floor(this.maxSize / 2));
+    }
     
-    const filteredResponseTimes = this.responseTimes.filter(
-      rt => rt.timestamp >= startTime && rt.timestamp <= endTime
-    );
+    // Clean up old token usage data
+    if (this.tokenUsage.length > this.maxSize) {
+      this.tokenUsage = this.tokenUsage.slice(-Math.floor(this.maxSize / 2));
+    }
     
-    // Group by interval
-    const timeGroups = this.groupByTimeInterval(
-      [...filteredRequests, ...filteredErrors, ...filteredResponseTimes],
-      interval
-    );
-    
-    // Calculate metrics for each time group
-    const timeSeriesData = Object.entries(timeGroups).map(([timeKey, items]) => {
-      const requests = items.filter(item => 'method' in item);
-      const errors = items.filter(item => 'errorType' in item);
-      const responseTimes = items.filter(item => 'value' in item);
-      
-      const avgResponseTime = responseTimes.length ?
-        responseTimes.reduce((sum, rt) => sum + rt.value, 0) / responseTimes.length : 0;
-      
-      return {
-        timeKey,
-        timestamp: parseInt(timeKey),
-        requestCount: requests.length,
-        errorCount: errors.length,
-        avgResponseTime
-      };
-    }).sort((a, b) => a.timestamp - b.timestamp);
-    
-    // Get error distribution by type
-    const errorTypes = {};
-    filteredErrors.forEach(err => {
-      errorTypes[err.errorType] = (errorTypes[err.errorType] || 0) + 1;
+    // Clean up old sessions
+    this.sessions.forEach((session, id) => {
+      if (now - session.lastActive > this.retention) {
+        this.sessions.delete(id);
+      }
     });
-    
-    return {
-      timeRange: {
-        startTime,
-        endTime,
-        interval
-      },
-      timeSeries: timeSeriesData,
-      totals: {
-        requests: filteredRequests.length,
-        errors: filteredErrors.length,
-        avgResponseTime: filteredResponseTimes.length ?
-          filteredResponseTimes.reduce((sum, rt) => sum + rt.value, 0) / filteredResponseTimes.length : 0
-      },
-      errorDistribution: Object.entries(errorTypes).map(([type, count]) => ({ type, count }))
-    };
   }
   
   /**
-   * Group data by time interval
-   * @param {Array} data - Data items with timestamp
-   * @param {string} interval - Time interval ('minute', 'hour', 'day')
-   * @returns {Object} Grouped data
+   * Synchronize with OneAPI metrics
    */
-  groupByTimeInterval(data, interval) {
-    const groups = {};
+  async syncWithOneAPI() {
+    if (!this.oneAPI) return;
     
-    data.forEach(item => {
-      let timeKey;
-      const timestamp = item.timestamp;
-      const date = new Date(timestamp);
+    try {
+      // Get metrics from OneAPI
+      const oneApiMetrics = await this.oneAPI.getMetrics({
+        timeframe: 'day'
+      });
       
-      switch (interval) {
-        case 'minute':
-          date.setSeconds(0, 0);
-          timeKey = date.getTime();
-          break;
-        case 'hour':
-          date.setMinutes(0, 0, 0);
-          timeKey = date.getTime();
-          break;
-        case 'day':
-          date.setHours(0, 0, 0, 0);
-          timeKey = date.getTime();
-          break;
-        default:
-          timeKey = timestamp;
+      if (!oneApiMetrics || !oneApiMetrics.data) return;
+      
+      // Process and merge provider metrics
+      if (oneApiMetrics.data.providers) {
+        for (const [provider, data] of Object.entries(oneApiMetrics.data.providers)) {
+          if (!this.providers.has(provider)) {
+            this.providers.set(provider, {
+              count: 0,
+              errors: 0,
+              totalTokens: 0,
+              totalResponseTime: 0,
+              avgResponseTime: 0,
+              statusCodes: {}
+            });
+          }
+          
+          const localStats = this.providers.get(provider);
+          const remoteStats = data;
+          
+          // Merge remote metrics with local ones
+          if (remoteStats.count > localStats.count) {
+            localStats.count = remoteStats.count;
+            localStats.errors = remoteStats.errors || 0;
+            localStats.totalTokens = remoteStats.totalTokens || 0;
+            
+            if (remoteStats.responseTime) {
+              localStats.avgResponseTime = remoteStats.responseTime.avg || 0;
+              localStats.totalResponseTime = localStats.avgResponseTime * localStats.count;
+            }
+          }
+        }
       }
       
-      if (!groups[timeKey]) {
-        groups[timeKey] = [];
+      // Process and merge model metrics
+      if (oneApiMetrics.data.models) {
+        for (const [model, data] of Object.entries(oneApiMetrics.data.models)) {
+          if (!this.models.has(model)) {
+            this.models.set(model, {
+              count: 0,
+              promptTokens: 0,
+              completionTokens: 0,
+              totalTokens: 0,
+              provider: data.provider || 'unknown',
+              providerUsage: {}
+            });
+          }
+          
+          const localStats = this.models.get(model);
+          const remoteStats = data;
+          
+          // Merge remote metrics with local ones if they have more data
+          if (remoteStats.count > localStats.count) {
+            localStats.count = remoteStats.count;
+            localStats.promptTokens = remoteStats.promptTokens || 0;
+            localStats.completionTokens = remoteStats.completionTokens || 0;
+            localStats.totalTokens = remoteStats.totalTokens || 0;
+          }
+        }
       }
-      
-      groups[timeKey].push(item);
+    } catch (error) {
+      console.error('Error syncing with OneAPI metrics:', error);
+    }
+  }
+  
+  /**
+   * Get all session data
+   * @returns {Array} Array of session objects
+   */
+  getSessions() {
+    return Array.from(this.sessions.values()).map((session, index) => {
+      return {
+        id: Array.from(this.sessions.keys())[index],
+        ...session
+      };
     });
-    
-    return groups;
+  }
+  
+  /**
+   * Get all provider statistics
+   * @returns {Array} Array of provider stats objects
+   */
+  getProviders() {
+    return Array.from(this.providers.entries()).map(([provider, stats]) => {
+      return {
+        provider,
+        ...stats
+      };
+    });
+  }
+  
+  /**
+   * Get model usage statistics
+   * @returns {Array} Array of model stats objects
+   */
+  getModels() {
+    return Array.from(this.models.entries()).map(([model, stats]) => {
+      return {
+        model,
+        ...stats
+      };
+    });
+  }
+  
+  /**
+   * Get endpoint usage statistics
+   * @returns {Array} Array of endpoint stats objects
+   */
+  getEndpoints() {
+    return Array.from(this.endpoints.entries()).map(([endpoint, stats]) => {
+      return {
+        endpoint,
+        ...stats
+      };
+    });
   }
 }
 

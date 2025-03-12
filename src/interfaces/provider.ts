@@ -57,6 +57,36 @@ export interface ProviderConfig {
    * Maximum number of retries
    */
   maxRetries?: number;
+  
+  /**
+   * OneAPI integration options
+   */
+  oneApi?: {
+    /**
+     * Whether to use OneAPI for this provider
+     */
+    enabled: boolean;
+    
+    /**
+     * OneAPI-specific configuration
+     */
+    configId?: string;
+    
+    /**
+     * Whether to track metrics with OneAPI
+     */
+    trackMetrics?: boolean;
+    
+    /**
+     * Default model mappings for this provider
+     */
+    modelMappings?: Record<string, string>;
+    
+    /**
+     * Fallback providers if this one fails
+     */
+    fallbacks?: string[];
+  };
 }
 
 /**
@@ -67,6 +97,16 @@ export interface Provider {
    * Provider name
    */
   readonly name: string;
+  
+  /**
+   * OneAPI integration status
+   */
+  readonly oneApiEnabled?: boolean;
+  
+  /**
+   * OneAPI client reference if available
+   */
+  readonly oneApiClient?: any;
 
   /**
    * Generate completions from a prompt
@@ -99,6 +139,44 @@ export interface Provider {
    * @returns Promise resolving to image generation response
    */
   createImage?(request: ImageGenerationRequest): Promise<ImageGenerationResponse>;
+  
+  /**
+   * Track metrics for API calls using OneAPI
+   * 
+   * @param metrics Metrics data to record
+   */
+  trackMetrics?(metrics: {
+    requestType: string;
+    model: string;
+    inputTokens?: number;
+    outputTokens?: number;
+    startTime: Date;
+    endTime?: Date;
+    status: 'success' | 'error';
+    errorMessage?: string;
+    metadata?: Record<string, any>;
+  }): void;
+  
+  /**
+   * Get tracked metrics for this provider
+   * 
+   * @param options Query options for metrics
+   * @returns Promise resolving to metrics data
+   */
+  getMetrics?(options?: {
+    startDate?: Date;
+    endDate?: Date;
+    model?: string;
+    requestType?: string;
+  }): Promise<any>;
+  
+  /**
+   * Check if a model is available through this provider
+   * 
+   * @param modelId Model identifier to check
+   * @returns Promise resolving to availability status
+   */
+  checkModelAvailability?(modelId: string): Promise<boolean>;
 
   /**
    * Transcribe audio to text
@@ -126,6 +204,7 @@ export enum ProviderType {
   GOOGLE_GEMINI = 'google_gemini',
   GOOGLE_VERTEX = 'google_vertex',
   ANTHROPIC = 'anthropic',
+  CLAUDE = 'claude',  // Added Claude as distinct from generic Anthropic
   MISTRAL = 'mistral',
   TOGETHER = 'together'
 }

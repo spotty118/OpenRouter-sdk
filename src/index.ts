@@ -22,6 +22,12 @@ export { StructuredOutput } from './utils/structured-output.js';
 export { Reasoning } from './utils/reasoning.js';
 export { ProviderRouting } from './utils/provider-routing.js';
 
+// Providers
+export { ClaudeProvider, ClaudeConfig } from './providers/claude.js';
+
+// Services
+export { GoogleSearch, GoogleSearchConfig, SearchResult } from './services/google-search.js';
+
 // Examples
 export {
   runEnhancedExamples,
