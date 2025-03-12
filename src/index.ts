@@ -29,13 +29,7 @@ export { ClaudeProvider, ClaudeConfig } from './providers/claude.js';
 export { GoogleSearch, GoogleSearchConfig, SearchResult } from './services/google-search.js';
 
 // Examples
-export {
-  runEnhancedExamples,
-  quickSetupExample,
-  smartOrchestrationExample,
-  oneLineToolSetupExample
-} from './examples/enhanced-crew-ai-example.js';
-export { runAgentMemoryExample } from './examples/agent-memory-example.js';
+// Note: Enhanced crew and agent memory examples were removed
 
 // Errors
 export { OpenRouterError } from './errors/openrouter-error.js';
