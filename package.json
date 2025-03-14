@@ -1,6 +1,6 @@
 {
   "name": "openrouter-sdk",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "type": "module",
   "description": "OpenRouter SDK with Agent Wizard",
   "main": "src/examples/server.js",
@@ -20,6 +20,7 @@
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.21.2",
+    "http-proxy-middleware": "^3.0.3",
     "langchain": "^0.1.9",
     "marked": "^15.0.7",
     "node-fetch": "^3.3.2",
@@ -30,6 +31,7 @@
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/node": "^20.10.5",
+    "@types/ws": "^8.18.0",
     "nodemon": "^3.0.2",
     "open": "^10.1.0",
     "typescript": "^5.3.3"

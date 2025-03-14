@@ -4,6 +4,11 @@
  * This script starts the Express server for the OpenRouter SDK demo UI
  */
 
+import * as dotenv from 'dotenv';
+
+// Load environment variables from .env file
+dotenv.config();
+
 try {
   // Import the server using ES module syntax
   import('./src/server.js')
