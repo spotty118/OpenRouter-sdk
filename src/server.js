@@ -11,7 +11,13 @@ import * as dotenv from 'dotenv';
 dotenv.config();
 
 import { fileURLToPath } from 'url';
-import fs from 'fs';
+import path from 'path';
+import * as dotenv from 'dotenv';
+
+// Load environment variables
+dotenv.config();
+
+import { fileURLToPath } from 'url';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import http from 'http';
 import https from 'https';
@@ -26,61 +32,9 @@ import { getOneAPI } from './oneapi.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Path to API keys storage
-const API_KEYS_PATH = path.join(__dirname, '../data/api-keys.js');
-
-// Function to load API keys
-async function loadApiKeys() {
-  try {
-    // Import API keys from file
-    const apiKeysModule = await import(`../data/api-keys.js?timestamp=${Date.now()}`);
-    const apiKeys = apiKeysModule.default;
-    
-    // Set environment variables from loaded keys
-    if (apiKeys.openaiKey) process.env.OPENAI_API_KEY = apiKeys.openaiKey;
-    if (apiKeys.anthropicKey) process.env.ANTHROPIC_API_KEY = apiKeys.anthropicKey;
-    if (apiKeys.googleKey) process.env.GOOGLE_API_KEY = apiKeys.googleKey;
-    if (apiKeys.mistralKey) process.env.MISTRAL_API_KEY = apiKeys.mistralKey;
-    if (apiKeys.togetherKey) process.env.TOGETHER_API_KEY = apiKeys.togetherKey;
-    
-    console.log('API keys loaded successfully:', Object.keys(apiKeys).filter(k => apiKeys[k]).join(', '));
-    return apiKeys;
-  } catch (error) {
-    console.warn('Failed to load API keys:', error.message);
-    return {};
-  }
-}
-
-// Function to save API keys
-async function saveApiKeys(keys) {
-  try {
-    const content = `/**
- * Persistent API Key Storage for OpenRouter SDK
- */
-
-export default {
-  openaiKey: "${keys.openaiKey || ''}",
-  anthropicKey: "${keys.anthropicKey || ''}",
-  googleKey: "${keys.googleKey || ''}",
-  mistralKey: "${keys.mistralKey || ''}",
-  togetherKey: "${keys.togetherKey || ''}"
-};`;
-
-    fs.writeFileSync(API_KEYS_PATH, content, 'utf8');
-    console.log('API keys saved successfully');
-    return true;
-  } catch (error) {
-    console.error('Failed to save API keys:', error);
-    return false;
-  }
-}
-
 // Create Express app
 const app = express();
 const PORT = process.env.PORT || 3000; // Changed to port 3000 to match default expectations
-
-// Load API keys at startup
-await loadApiKeys();
 
 // Initialize providers
 const openai = new OpenAIProvider({
@@ -651,12 +605,7 @@ app.post('/api/update-keys', async (req, res) => {
     if (mistralKey) process.env.MISTRAL_API_KEY = mistralKey;
     if (togetherKey) process.env.TOGETHER_API_KEY = togetherKey;
     
-    // Save keys to persistent storage
-    const saveResult = await saveApiKeys({
-      openaiKey, anthropicKey, googleKey, mistralKey, togetherKey
-    });
-    
-    // Reinitialize OneAPI with updated keys
+        // Reinitialize OneAPI with updated keys
     Object.assign(oneAPI, getOneAPI({
       openaiApiKey: process.env.OPENAI_API_KEY,
       anthropicApiKey: process.env.ANTHROPIC_API_KEY,
