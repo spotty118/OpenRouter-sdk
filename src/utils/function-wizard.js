@@ -111,8 +111,26 @@ export class FunctionWizard {
   listFunctions() {
     return Array.from(this.functions.values()).map(f => ({
       name: f.name,
-      description: f.description
+      description: f.description,
+      parameters: f.parameters,
+      implementation: f.handler
     }));
+  }
+
+  /**
+   * Get a specific function by name
+   */
+  getFunction(name) {
+    const func = this.functions.get(name);
+    if (!func) {
+      throw new Error(`Function ${name} not found`);
+    }
+    return {
+      name: func.name,
+      description: func.description,
+      parameters: func.parameters,
+      implementation: func.handler
+    };
   }
 
   validateParameters(func, params) {

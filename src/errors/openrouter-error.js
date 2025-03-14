@@ -1,151 +1,148 @@
 /**
- * OpenRouterError - Standardized error class for the OpenRouter SDK
- * Provides consistent error handling with detailed metadata across all providers
+ * Custom error class for OpenRouter SDK
  */
 
+/**
+ * OpenRouterError represents an error that occurred in the OpenRouter SDK
+ */
 export class OpenRouterError extends Error {
-  constructor(message, options = {}) {
+  /**
+   * Create a new OpenRouterError
+   * 
+   * @param {string} message - Error message
+   * @param {number} status - HTTP status code (if applicable)
+   * @param {Object} data - Additional error data
+   */
+  constructor(message, status = 0, data = null) {
     super(message);
+    
     this.name = 'OpenRouterError';
-    
-    // Standard error properties
-    this.statusCode = options.statusCode || 500;
-    this.type = options.type || 'server_error';
-    this.code = options.code || 'internal_error';
-    this.param = options.param || null;
-    
-    // Provider-specific information
-    this.provider = options.provider || null;
-    this.model = options.model || null;
-    
-    // Request tracking
-    this.requestId = options.requestId || null;
-    this.timestamp = options.timestamp || new Date().toISOString();
-    
-    // Metrics and debugging information
-    this.inputTokens = options.inputTokens || 0;
-    this.outputTokens = options.outputTokens || 0;
-    this.latency = options.latency || 0;
-    
-    // Original error if available
-    this.originalError = options.originalError || null;
+    this.status = status;
+    this.data = data;
+    this.code = data?.error?.code || data?.code || 'unknown_error';
     
     // Capture stack trace
     if (Error.captureStackTrace) {
       Error.captureStackTrace(this, OpenRouterError);
     }
   }
-  
+
   /**
-   * Creates an error from a provider-specific error
-   * @param {Error} error - The original error from the provider
-   * @param {Object} metadata - Additional metadata to include
-   * @returns {OpenRouterError} - Standardized error with provider details
+   * Get a string representation of the error
+   * 
+   * @returns {string} String representation
    */
-  static fromProviderError(error, metadata = {}) {
-    let message = error.message || 'Unknown provider error';
-    let statusCode = 500;
-    let type = 'provider_error';
-    let code = 'provider_error';
+  toString() {
+    let result = `${this.name}: ${this.message}`;
     
-    // Handle specific provider error types if known
-    if (error.status || error.statusCode) {
-      statusCode = error.status || error.statusCode;
+    if (this.status) {
+      result += ` (Status: ${this.status})`;
     }
     
-    // Extract more details if available
-    if (error.response && error.response.data) {
-      const data = error.response.data;
-      if (data.error) {
-        message = data.error.message || message;
-        type = data.error.type || type;
-        code = data.error.code || code;
+    if (this.code && this.code !== 'unknown_error') {
+      result += ` [${this.code}]`;
+    }
+    
+    return result;
+  }
+
+  /**
+   * Convert the error to a plain object
+   * 
+   * @returns {Object} Plain object representation
+   */
+  toJSON() {
+    return {
+      name: this.name,
+      message: this.message,
+      status: this.status,
+      code: this.code,
+      data: this.data
+    };
+  }
+
+  /**
+   * Create an error from an API response
+   * 
+   * @param {Object} response - API response
+   * @returns {OpenRouterError} New error instance
+   */
+  static fromResponse(response) {
+    const status = response.status || 0;
+    const data = response.data || null;
+    const message = data?.error?.message || data?.message || response.statusText || 'Unknown error';
+    
+    return new OpenRouterError(message, status, data);
+  }
+
+  /**
+   * Create a rate limit error
+   * 
+   * @param {string} message - Error message
+   * @param {number} retryAfter - Seconds to wait before retrying
+   * @returns {OpenRouterError} New error instance
+   */
+  static rateLimitError(message = 'Rate limit exceeded', retryAfter = 60) {
+    return new OpenRouterError(message, 429, {
+      error: {
+        code: 'rate_limit_exceeded',
+        message,
+        param: null,
+        type: 'rate_limit_error'
+      },
+      retryAfter
+    });
+  }
+
+  /**
+   * Create an authentication error
+   * 
+   * @param {string} message - Error message
+   * @returns {OpenRouterError} New error instance
+   */
+  static authError(message = 'Authentication failed') {
+    return new OpenRouterError(message, 401, {
+      error: {
+        code: 'authentication_error',
+        message,
+        param: null,
+        type: 'authentication_error'
       }
-    }
-    
-    return new OpenRouterError(message, {
-      statusCode,
-      type,
-      code,
-      originalError: error,
-      ...metadata
     });
   }
-  
+
   /**
-   * Creates a rate limit error
-   * @param {Object} metadata - Additional metadata to include
-   * @returns {OpenRouterError} - Rate limit error
+   * Create a validation error
+   * 
+   * @param {string} message - Error message
+   * @param {string} param - Parameter that failed validation
+   * @returns {OpenRouterError} New error instance
    */
-  static rateLimitError(metadata = {}) {
-    return new OpenRouterError('Rate limit exceeded', {
-      statusCode: 429,
-      type: 'rate_limit_error',
-      code: 'rate_limit_exceeded',
-      ...metadata
+  static validationError(message = 'Validation failed', param = null) {
+    return new OpenRouterError(message, 400, {
+      error: {
+        code: 'validation_error',
+        message,
+        param,
+        type: 'validation_error'
+      }
     });
   }
-  
+
   /**
-   * Creates an authentication error
-   * @param {Object} metadata - Additional metadata to include
-   * @returns {OpenRouterError} - Authentication error
+   * Create a timeout error
+   * 
+   * @param {string} message - Error message
+   * @returns {OpenRouterError} New error instance
    */
-  static authError(metadata = {}) {
-    return new OpenRouterError('Authentication failed', {
-      statusCode: 401,
-      type: 'authentication_error',
-      code: 'invalid_api_key',
-      ...metadata
-    });
-  }
-  
-  /**
-   * Creates a model not found error
-   * @param {string} model - The model that wasn't found
-   * @param {Object} metadata - Additional metadata to include
-   * @returns {OpenRouterError} - Model not found error
-   */
-  static modelNotFoundError(model, metadata = {}) {
-    return new OpenRouterError(`Model '${model}' not found`, {
-      statusCode: 404,
-      type: 'model_error',
-      code: 'model_not_found',
-      param: 'model',
-      model,
-      ...metadata
-    });
-  }
-  
-  /**
-   * Creates a model overloaded error
-   * @param {string} model - The overloaded model
-   * @param {Object} metadata - Additional metadata to include
-   * @returns {OpenRouterError} - Model overloaded error
-   */
-  static modelOverloadedError(model, metadata = {}) {
-    return new OpenRouterError(`Model '${model}' is currently overloaded`, {
-      statusCode: 503,
-      type: 'server_error',
-      code: 'model_overloaded',
-      model,
-      ...metadata
-    });
-  }
-  
-  /**
-   * Creates a context length error
-   * @param {number} maxTokens - The maximum allowed tokens
-   * @param {Object} metadata - Additional metadata to include
-   * @returns {OpenRouterError} - Context length error
-   */
-  static contextLengthError(maxTokens, metadata = {}) {
-    return new OpenRouterError(`Input exceeds maximum context length of ${maxTokens} tokens`, {
-      statusCode: 400,
-      type: 'invalid_request_error',
-      code: 'context_length_exceeded',
-      param: 'messages',
-      ...metadata
+  static timeoutError(message = 'Request timed out') {
+    return new OpenRouterError(message, 408, {
+      error: {
+        code: 'timeout_error',
+        message,
+        param: null,
+        type: 'timeout_error'
+      }
     });
   }
 }

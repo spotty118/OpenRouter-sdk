@@ -5,6 +5,7 @@
  * and SDK functions through a consistent, easy-to-use API.
  */
 
+import { OpenRouter } from './core/open-router.js';
 import { OpenAIProvider } from './providers/openai.js';
 import { AnthropicProvider } from './providers/anthropic.js';
 import { GeminiProvider } from './providers/google-gemini.js';
@@ -32,23 +33,26 @@ class OneAPI {
     // Safely access environment variables in Node.js or use empty string in browser
     const env = typeof process !== 'undefined' && process.env ? process.env : {};
     
-    // Configure providers with API keys if provided
+    // Initialize OpenRouter with API key
+    this.openRouter = new OpenRouter({
+      apiKey: config.openRouterApiKey || env.OPENROUTER_API_KEY || '',
+      defaultModel: config.defaultModel || 'openai/gpt-3.5-turbo',
+      timeout: config.timeout || 30000,
+      maxRetries: config.maxRetries || 3,
+      logLevel: config.logLevel || 'info',
+      enableCaching: config.enableCaching !== false,
+      cacheTTL: config.cacheTTL || 60 * 60 * 1000, // Default 1 hour
+      rateLimitRPM: config.rateLimitRPM || 0,
+      headers: config.headers || {}
+    });
+    
+    // Initialize provider mapping layers with oneAPI reference
     this.providers = {
-      openai: new OpenAIProvider({
-        apiKey: config.openaiApiKey || env.OPENAI_API_KEY || ''
-      }),
-      anthropic: new AnthropicProvider({
-        apiKey: config.anthropicApiKey || env.ANTHROPIC_API_KEY || ''
-      }),
-      gemini: new GeminiProvider({
-        apiKey: config.googleApiKey || env.GOOGLE_API_KEY || ''
-      }),
-      mistral: new MistralProvider({
-        apiKey: config.mistralApiKey || env.MISTRAL_API_KEY || ''
-      }),
-      together: new TogetherProvider({
-        apiKey: config.togetherApiKey || env.TOGETHER_API_KEY || ''
-      })
+      openai: new OpenAIProvider({ oneAPI: this }),
+      anthropic: new AnthropicProvider({ oneAPI: this }),
+      gemini: new GeminiProvider({ oneAPI: this }),
+      mistral: new MistralProvider({ oneAPI: this }),
+      together: new TogetherProvider({ oneAPI: this })
     };
 
     // Assign this OneAPI instance to each provider to break circular dependency
@@ -89,6 +93,17 @@ class OneAPI {
 
     // Keep track of the current provider being used
     this.currentProvider = null;
+    
+    // Initialize metrics
+    this.metrics = {
+      totalRequests: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+      totalTime: 0,
+      operations: [],
+      errors: [],
+      providers: {}
+    };
   }
 
   /**
@@ -96,6 +111,7 @@ class OneAPI {
    * @returns {Object} Status of all providers
    */
   checkStatus() {
+    // Check each provider's configuration status individually
     return {
       openai: this.providers.openai.isConfigured(),
       anthropic: this.providers.anthropic.isConfigured(),
@@ -120,27 +136,8 @@ class OneAPI {
    * @returns {boolean} Whether the provider is configured
    */
   hasProviderConfig(provider, key = null) {
-    // If provider isn't valid, return false
-    if (!this.providers[provider]) {
-      return false;
-    }
-    
-    // Directly check if the provider has an apiKey to avoid circular reference
-    if (this.providers[provider].apiKey) {
-      return true;
-    }
-    
-    // Safely access environment variables in Node.js, return false in browser
-    if (typeof process !== 'undefined' && process.env) {
-      // Check environment variables as fallback
-      if (provider === 'openai' && process.env.OPENAI_API_KEY) return true;
-      if (provider === 'anthropic' && process.env.ANTHROPIC_API_KEY) return true;
-      if (provider === 'gemini' && process.env.GOOGLE_API_KEY) return true;
-      if (provider === 'mistral' && process.env.MISTRAL_API_KEY) return true;
-      if (provider === 'together' && process.env.TOGETHER_API_KEY) return true;
-    }
-    
-    return false;
+    // All providers are configured if OpenRouter is configured
+    return !!this.openRouter.apiKey;
   }
   
   /**
@@ -148,19 +145,6 @@ class OneAPI {
    * @param {Object} metric - Metric data for the operation
    */
   trackMetric(metric) {
-    // Initialize metrics collection if it doesn't exist
-    if (!this.metrics) {
-      this.metrics = {
-        totalRequests: 0,
-        inputTokens: 0,
-        outputTokens: 0,
-        totalTime: 0,
-        operations: [],
-        errors: [],
-        providers: {}
-      };
-    }
-    
     // Increment total metrics
     this.metrics.totalRequests++;
     const inputTokens = metric.tokenUsage?.input || 0;
@@ -242,7 +226,7 @@ class OneAPI {
    */
   getMetrics() {
     // If no metrics collected yet, return empty metrics
-    if (!this.metrics) {
+    if (!this.metrics || this.metrics.totalRequests === 0) {
       const defaultProviders = [
         { id: 'openai', requests: 0, inputTokens: 0, outputTokens: 0, avgResponseTime: 0, successRate: 100 },
         { id: 'anthropic', requests: 0, inputTokens: 0, outputTokens: 0, avgResponseTime: 0, successRate: 100 },
@@ -315,49 +299,14 @@ class OneAPI {
    * @returns {Array} List of available models
    */
   async listModels() {
-    const models = [];
-
-    // Collect models from all configured providers
-    for (const [provider, instance] of Object.entries(this.providers)) {
-      if (instance.isConfigured()) {
-        try {
-          const providerModels = await instance.listModels();
-          if (providerModels && Array.isArray(providerModels.data)) {
-            // Add provider prefix to model IDs
-            const prefixedModels = providerModels.data.map(model => ({
-              ...model,
-              id: `${provider}/${model.id}`
-            }));
-            models.push(...prefixedModels);
-          }
-        } catch (error) {
-          console.error(`Error fetching models from ${provider}:`, error);
-        }
-      }
+    try {
+      // Get models directly from OpenRouter
+      const models = await this.openRouter.listModels();
+      return models;
+    } catch (error) {
+      console.error('Error fetching models from OpenRouter:', error);
+      return { data: [] };
     }
-
-    return { data: models };
-  }
-
-  /**
-   * Get provider instance for a given model
-   * @param {string} model - Model ID (with provider prefix)
-   * @returns {Object} Provider instance and cleaned model ID
-   */
-  _getProviderForModel(model) {
-    const [providerName, modelId] = model.split('/');
-    const provider = this.providers[providerName];
-    
-    if (!provider) {
-      throw new Error(`Unknown provider for model: ${model}`);
-    }
-    
-    if (!provider.isConfigured()) {
-      throw new Error(`Provider ${providerName} is not configured with a valid API key`);
-    }
-    
-    this.currentProvider = provider;
-    return { provider, modelId };
   }
 
   /**
@@ -366,34 +315,190 @@ class OneAPI {
    * @returns {Promise<Object>} Chat completion response
    */
   async createChatCompletion(options) {
-    const { model, messages, temperature = 0.7, maxTokens = 1000, ...rest } = options;
-    const { provider, modelId } = this._getProviderForModel(model);
+    const startTime = Date.now();
     
-    return provider.createChatCompletion({
-      model: modelId,
-      messages,
-      temperature,
-      max_tokens: maxTokens,
-      ...rest
-    });
+    try {
+      // Forward request to OpenRouter
+      const response = await this.openRouter.createChatCompletion({
+        model: options.model,
+        messages: options.messages,
+        temperature: options.temperature || 0.7,
+        max_tokens: options.maxTokens || options.max_tokens || 1000,
+        top_p: options.top_p,
+        top_k: options.top_k,
+        stream: false,
+        transforms: options.transforms,
+        additional_stop_sequences: options.additional_stop_sequences,
+        response_format: options.response_format,
+        seed: options.seed,
+        tools: options.tools,
+        tool_choice: options.tool_choice,
+        frequency_penalty: options.frequency_penalty,
+        presence_penalty: options.presence_penalty,
+        logit_bias: options.logit_bias,
+        repetition_penalty: options.repetition_penalty,
+        top_logprobs: options.top_logprobs,
+        min_p: options.min_p,
+        models: options.models,
+        provider: options.provider,
+        plugins: options.plugins,
+        reasoning: options.reasoning,
+        include_reasoning: options.include_reasoning,
+        user: options.user
+      });
+      
+      // Track metrics
+      const endTime = Date.now();
+      const processingTime = endTime - startTime;
+      
+      this.trackMetric({
+        type: 'chat_completion',
+        provider: options.model.split('/')[0],
+        model: options.model,
+        processingTime,
+        tokenUsage: {
+          input: response.usage?.prompt_tokens || 0,
+          output: response.usage?.completion_tokens || 0
+        },
+        status: 'success'
+      });
+      
+      return response;
+    } catch (error) {
+      // Track error metrics
+      const endTime = Date.now();
+      const processingTime = endTime - startTime;
+      
+      this.trackMetric({
+        type: 'chat_completion',
+        provider: options.model.split('/')[0],
+        model: options.model,
+        processingTime,
+        status: 'error',
+        error: {
+          message: error.message,
+          code: error.code || 'unknown'
+        }
+      });
+      
+      throw error;
+    }
   }
 
   /**
    * Create a streaming chat completion
    * @param {Object} options - Chat completion options
-   * @returns {ReadableStream} Stream of chat completion chunks
+   * @returns {AsyncGenerator} Stream of chat completion chunks
    */
   async createChatCompletionStream(options) {
-    const { model, messages, temperature = 0.7, maxTokens = 1000, ...rest } = options;
-    const { provider, modelId } = this._getProviderForModel(model);
+    const startTime = Date.now();
+    let totalOutputTokens = 0;
     
-    return provider.createChatCompletionStream({
-      model: modelId,
-      messages,
-      temperature,
-      max_tokens: maxTokens,
-      ...rest
-    });
+    try {
+      // Forward request to OpenRouter
+      const stream = this.openRouter.createChatCompletionStream({
+        model: options.model,
+        messages: options.messages,
+        temperature: options.temperature || 0.7,
+        max_tokens: options.maxTokens || options.max_tokens || 1000,
+        top_p: options.top_p,
+        top_k: options.top_k,
+        transforms: options.transforms,
+        additional_stop_sequences: options.additional_stop_sequences,
+        response_format: options.response_format,
+        seed: options.seed,
+        tools: options.tools,
+        tool_choice: options.tool_choice,
+        frequency_penalty: options.frequency_penalty,
+        presence_penalty: options.presence_penalty,
+        logit_bias: options.logit_bias,
+        repetition_penalty: options.repetition_penalty,
+        top_logprobs: options.top_logprobs,
+        min_p: options.min_p,
+        models: options.models,
+        provider: options.provider,
+        plugins: options.plugins,
+        reasoning: options.reasoning,
+        include_reasoning: options.include_reasoning,
+        user: options.user
+      });
+      
+      // Create a wrapper that tracks metrics
+      return {
+        async next() {
+          try {
+            const { value, done } = await stream.next();
+            
+            if (done) {
+              // Track final metrics when stream is done
+              const endTime = Date.now();
+              const processingTime = endTime - startTime;
+              
+              this.trackMetric({
+                type: 'chat_completion_stream',
+                provider: options.model.split('/')[0],
+                model: options.model,
+                processingTime,
+                tokenUsage: {
+                  input: 0, // We don't know prompt tokens from stream
+                  output: totalOutputTokens
+                },
+                status: 'success'
+              });
+              
+              return { done: true, value: undefined };
+            }
+            
+            // Estimate tokens from content
+            if (value.choices?.[0]?.delta?.content) {
+              totalOutputTokens += value.choices[0].delta.content.length / 4;
+            }
+            
+            return { done: false, value };
+          } catch (error) {
+            // Track error metrics
+            const endTime = Date.now();
+            const processingTime = endTime - startTime;
+            
+            this.trackMetric({
+              type: 'chat_completion_stream',
+              provider: options.model.split('/')[0],
+              model: options.model,
+              processingTime,
+              status: 'error',
+              error: {
+                message: error.message,
+                code: error.code || 'unknown'
+              }
+            });
+            
+            throw error;
+          }
+        },
+        
+        [Symbol.asyncIterator]() {
+          return this;
+        }
+      };
+    } catch (error) {
+      // Track error metrics for initial setup
+      const endTime = Date.now();
+      const processingTime = endTime - startTime;
+      
+      this.trackMetric({
+        type: 'chat_completion_stream',
+        provider: options.model.split('/')[0],
+        model: options.model,
+        processingTime,
+        status: 'error',
+        error: {
+          message: error.message,
+          code: error.code || 'unknown'
+        }
+      });
+      
+      throw error;
+    }
   }
 
   /**
@@ -402,13 +507,51 @@ class OneAPI {
    * @returns {Promise<Object>} Embedding response
    */
   async createEmbedding(options) {
-    const { model, input } = options;
-    const { provider, modelId } = this._getProviderForModel(model);
+    const startTime = Date.now();
     
-    return provider.createEmbedding({
-      model: modelId,
-      input
-    });
+    try {
+      // Forward request to OpenRouter
+      const response = await this.openRouter.createEmbedding({
+        model: options.model,
+        input: options.input
+      });
+      
+      // Track metrics
+      const endTime = Date.now();
+      const processingTime = endTime - startTime;
+      
+      this.trackMetric({
+        type: 'embedding',
+        provider: options.model.split('/')[0],
+        model: options.model,
+        processingTime,
+        tokenUsage: {
+          input: response.usage?.prompt_tokens || 0,
+          output: 0
+        },
+        status: 'success'
+      });
+      
+      return response;
+    } catch (error) {
+      // Track error metrics
+      const endTime = Date.now();
+      const processingTime = endTime - startTime;
+      
+      this.trackMetric({
+        type: 'embedding',
+        provider: options.model.split('/')[0],
+        model: options.model,
+        processingTime,
+        status: 'error',
+        error: {
+          message: error.message,
+          code: error.code || 'unknown'
+        }
+      });
+      
+      throw error;
+    }
   }
 
   /**
@@ -417,16 +560,52 @@ class OneAPI {
    * @returns {Promise<Object>} Image generation response
    */
   async createImage(options) {
-    const { model, prompt, n = 1, size = '1024x1024', ...rest } = options;
-    const { provider, modelId } = this._getProviderForModel(model);
+    const startTime = Date.now();
     
-    return provider.createImage({
-      model: modelId,
-      prompt,
-      n,
-      size,
-      ...rest
-    });
+    try {
+      // Forward request to OpenRouter
+      const response = await this.openRouter.createImage({
+        model: options.model,
+        prompt: options.prompt,
+        n: options.n || 1,
+        size: options.size || '1024x1024',
+        quality: options.quality,
+        style: options.style,
+        response_format: options.response_format
+      });
+      
+      // Track metrics
+      const endTime = Date.now();
+      const processingTime = endTime - startTime;
+      
+      this.trackMetric({
+        type: 'image_generation',
+        provider: options.model.split('/')[0],
+        model: options.model,
+        processingTime,
+        status: 'success'
+      });
+      
+      return response;
+    } catch (error) {
+      // Track error metrics
+      const endTime = Date.now();
+      const processingTime = endTime - startTime;
+      
+      this.trackMetric({
+        type: 'image_generation',
+        provider: options.model.split('/')[0],
+        model: options.model,
+        processingTime,
+        status: 'error',
+        error: {
+          message: error.message,
+          code: error.code || 'unknown'
+        }
+      });
+      
+      throw error;
+    }
   }
 
   /**
@@ -435,15 +614,52 @@ class OneAPI {
    * @returns {Promise<Object>} Transcription response
    */
   async createTranscription(options) {
-    const { model, file, language, ...rest } = options;
-    const { provider, modelId } = this._getProviderForModel(model);
+    const startTime = Date.now();
     
-    return provider.createTranscription({
-      model: modelId,
-      file,
-      language,
-      ...rest
-    });
+    try {
+      // Forward request to OpenRouter
+      const response = await this.openRouter.createTranscription({
+        model: options.model,
+        file: options.file,
+        language: options.language,
+        prompt: options.prompt,
+        response_format: options.response_format,
+        temperature: options.temperature,
+        timestamp_granularities: options.timestamp_granularities
+      });
+      
+      // Track metrics
+      const endTime = Date.now();
+      const processingTime = endTime - startTime;
+      
+      this.trackMetric({
+        type: 'transcription',
+        provider: options.model.split('/')[0],
+        model: options.model,
+        processingTime,
+        status: 'success'
+      });
+      
+      return response;
+    } catch (error) {
+      // Track error metrics
+      const endTime = Date.now();
+      const processingTime = endTime - startTime;
+      
+      this.trackMetric({
+        type: 'transcription',
+        provider: options.model.split('/')[0],
+        model: options.model,
+        processingTime,
+        status: 'error',
+        error: {
+          message: error.message,
+          code: error.code || 'unknown'
+        }
+      });
+      
+      throw error;
+    }
   }
 
   /**
@@ -572,25 +788,30 @@ export function getOneAPI(config = {}) {
     // If configuration provided, update the existing instance
     console.log('Updating OneAPI instance with new configuration');
     
-    // Reinitialize providers with new keys
+    // Create a new OpenRouter instance with updated config
+    const env = typeof process !== 'undefined' && process.env ? process.env : {};
+    
+    instance.openRouter = new OpenRouter({
+      apiKey: config.openRouterApiKey || env.OPENROUTER_API_KEY || '',
+      defaultModel: config.defaultModel || 'openai/gpt-3.5-turbo',
+      timeout: config.timeout || 30000,
+      maxRetries: config.maxRetries || 3,
+      logLevel: config.logLevel || 'info',
+      enableCaching: config.enableCaching !== false,
+      cacheTTL: config.cacheTTL || 60 * 60 * 1000, // Default 1 hour
+      rateLimitRPM: config.rateLimitRPM || 0,
+      headers: config.headers || {}
+    });
+    
+    // Reinitialize providers with their specific configs
     instance.providers = {
-      openai: new OpenAIProvider({
-        apiKey: config.openaiApiKey || process.env.OPENAI_API_KEY
-      }),
-      anthropic: new AnthropicProvider({
-        apiKey: config.anthropicApiKey || process.env.ANTHROPIC_API_KEY
-      }),
-      gemini: new GeminiProvider({
-        apiKey: config.googleApiKey || process.env.GOOGLE_API_KEY
-      }),
-      mistral: new MistralProvider({
-        apiKey: config.mistralApiKey || process.env.MISTRAL_API_KEY
-      }),
-      together: new TogetherProvider({
-        apiKey: config.togetherApiKey || process.env.TOGETHER_API_KEY
-      })
+      openai: new OpenAIProvider({ oneAPI: instance }),
+      anthropic: new AnthropicProvider({ oneAPI: instance }),
+      gemini: new GeminiProvider({ oneAPI: instance }),
+      mistral: new MistralProvider({ oneAPI: instance }),
+      together: new TogetherProvider({ oneAPI: instance })
     };
-
+    
     // Reassign this OneAPI instance to each provider
     Object.values(instance.providers).forEach(provider => {
       if (provider) {

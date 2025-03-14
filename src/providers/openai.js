@@ -1,236 +1,97 @@
 /**
  * OpenAI Provider Implementation
- * Integrated with OneAPI for unified API access
+ * Provides model mapping for routing through OpenRouter
  */
 
-import oneapiModule from '../oneapi.js';
+const MODEL_MAPPING = {
+  // GPT-4 models
+  'openai/gpt-4o': 'gpt-4o-2024-05-13',
+  'openai/gpt-4o-mini': 'gpt-4o-mini-2024-07-18',
+  'openai/gpt-4-turbo': 'gpt-4-turbo-2024-04-09',
+  'openai/gpt-4-vision': 'gpt-4-vision-preview',
+  'openai/gpt-4': 'gpt-4-0613',
+  
+  // GPT-3.5 models
+  'openai/gpt-3.5-turbo': 'gpt-3.5-turbo-0125',
+  'openai/gpt-3.5-turbo-16k': 'gpt-3.5-turbo-16k-0613',
+  
+  // Embedding models
+  'openai/text-embedding-3-small': 'text-embedding-3-small',
+  'openai/text-embedding-3-large': 'text-embedding-3-large',
+  'openai/text-embedding-ada-002': 'text-embedding-ada-002',
+  
+  // Image models
+  'openai/dall-e-3': 'dall-e-3',
+  'openai/dall-e-2': 'dall-e-2',
+  
+  // Audio models
+  'openai/whisper-1': 'whisper-1',
+  
+  // Reversed mappings
+  'gpt-4o-2024-05-13': 'openai/gpt-4o',
+  'gpt-4o-mini-2024-07-18': 'openai/gpt-4o-mini',
+  'gpt-4-turbo-2024-04-09': 'openai/gpt-4-turbo',
+  'gpt-4-vision-preview': 'openai/gpt-4-vision',
+  'gpt-4-0613': 'openai/gpt-4',
+  'gpt-3.5-turbo-0125': 'openai/gpt-3.5-turbo',
+  'gpt-3.5-turbo-16k-0613': 'openai/gpt-3.5-turbo-16k',
+  'text-embedding-3-small': 'openai/text-embedding-3-small',
+  'text-embedding-3-large': 'openai/text-embedding-3-large',
+  'text-embedding-ada-002': 'openai/text-embedding-ada-002',
+  'dall-e-3': 'openai/dall-e-3',
+  'dall-e-2': 'openai/dall-e-2',
+  'whisper-1': 'openai/whisper-1'
+};
 
 export class OpenAIProvider {
-  constructor(config = {}) {
-    this.apiKey = config.apiKey;
-    this.baseUrl = config.baseUrl || 'https://api.openai.com/v1';
-    this.organizationId = config.organizationId;
-    // Will be set by OneAPI after initialization to avoid circular dependency
+  constructor() {
+    this.name = 'openai';
     this.oneAPI = null;
     this.preferredModels = {
-      chat: 'gpt-4-turbo',
-      completion: 'gpt-3.5-turbo-instruct',
-      embedding: 'text-embedding-ada-002',
-      vision: 'gpt-4-vision'
+      chat: 'gpt-4o',
+      embedding: 'text-embedding-3-small',
+      vision: 'gpt-4-vision',
+      image: 'dall-e-3',
+      audio: 'whisper-1'
     };
   }
 
-  /**
-   * Check if provider is properly configured
-   */
+  normalizeModel(model) {
+    // Remove duplicate openai/ prefixes
+    const cleaned = model.replace(/^(openai\/)+/, '');
+    return MODEL_MAPPING[`openai/${cleaned}`] || cleaned;
+  }
+
   isConfigured() {
-    // Return true if we have a direct API key
-    if (this.apiKey) return true;
-    
-    // Check if oneAPI is initialized and has the provider config
-    if (this.oneAPI && typeof this.oneAPI.hasProviderConfig === 'function') {
-      return this.oneAPI.hasProviderConfig('openai');
-    }
-    
-    // If we can't determine, assume not configured
-    return false;
+    // Since we're routing through OpenRouter, we just need OneAPI to be initialized
+    return !!this.oneAPI;
   }
 
-  /**
-   * Get API key - either from instance or from OneAPI
-   * @private
-   */
-  _getApiKey() {
-    // Use instance apiKey if available
-    if (this.apiKey) {
-      return this.apiKey;
-    }
-    
-    // Otherwise get from OneAPI
-    try {
-      const config = this.oneAPI.getProviderConfig('openai');
-      return config?.apiKey;
-    } catch (error) {
-      console.error('Error getting OpenAI API key from OneAPI:', error);
-      throw new Error('OpenAI API key not configured');
-    }
+  createChatCompletion(params) {
+    // Forward to OpenRouter through OneAPI
+    return this.oneAPI.createChatCompletion({
+      ...params,
+      model: `openai/${params.model || this.preferredModels.chat}` // Ensure proper model prefix
+    });
   }
 
-  /**
-   * Create a chat completion
-   * @param {Object} params - API parameters
-   * @returns {Promise<Object>} API response
-   */
-  async createChatCompletion(params) {
-    // Try to use OneAPI first for unified tracking and logging
-    try {
-      const oneApiParams = {
-        provider: 'openai',
-        model: params.model || this.preferredModels.chat,
-        messages: params.messages,
-        temperature: params.temperature || 0.7,
-        maxTokens: params.max_tokens || params.maxTokens,
-        session: params.session,
-        user: params.user,
-        options: {
-          ...params.options,
-          stream: false
-        }
-      };
-      
-      return await this.oneAPI.chatCompletion(oneApiParams);
-    } catch (oneApiError) {
-      console.warn('OneAPI chat completion failed, falling back to direct API call:', oneApiError);
-      
-      // Fall back to direct API call
-      const apiKey = this._getApiKey();
-      
-      const headers = {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      };
-      
-      if (this.organizationId) {
-        headers['OpenAI-Organization'] = this.organizationId;
-      }
-      
-      const response = await fetch(`${this.baseUrl}/chat/completions`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          model: params.model || this.preferredModels.chat,
-          messages: params.messages,
-          temperature: params.temperature || 0.7,
-          max_tokens: params.max_tokens || params.maxTokens || 1024,
-          user: params.user
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.text();
-        throw new Error(`OpenAI API error: ${response.status} - ${errorData}`);
-      }
-
-      return await response.json();
-    }
+  createChatCompletionStream(params) {
+    // Forward to OpenRouter through OneAPI
+    return this.oneAPI.createChatCompletionStream({
+      ...params,
+      model: `openai/${params.model || this.preferredModels.chat}` // Ensure proper model prefix
+    });
   }
 
-  /**
-   * Create a streaming chat completion
-   * @param {Object} params - API parameters
-   * @returns {ReadableStream} Stream of completion chunks
-   */
-  async createChatCompletionStream(params) {
-    // Try to use OneAPI first for unified tracking and logging
-    try {
-      const oneApiParams = {
-        provider: 'openai',
-        model: params.model || this.preferredModels.chat,
-        messages: params.messages,
-        temperature: params.temperature || 0.7,
-        maxTokens: params.max_tokens || params.maxTokens,
-        session: params.session,
-        user: params.user,
-        options: {
-          ...params.options,
-          stream: true
-        }
-      };
-      
-      return await this.oneAPI.chatCompletionStream(oneApiParams);
-    } catch (oneApiError) {
-      console.warn('OneAPI streaming chat completion failed, falling back to direct API call:', oneApiError);
-      
-      // Fall back to direct API call
-      const apiKey = this._getApiKey();
-      
-      const headers = {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      };
-      
-      if (this.organizationId) {
-        headers['OpenAI-Organization'] = this.organizationId;
-      }
-      
-      const response = await fetch(`${this.baseUrl}/chat/completions`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          model: params.model || this.preferredModels.chat,
-          messages: params.messages,
-          temperature: params.temperature || 0.7,
-          max_tokens: params.max_tokens || params.maxTokens || 1024,
-          stream: true,
-          user: params.user
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.text();
-        throw new Error(`OpenAI API stream error: ${response.status} - ${errorData}`);
-      }
-
-      return response.body;
-    }
+  createEmbedding(params) {
+    // Forward to OpenRouter through OneAPI
+    return this.oneAPI.createEmbedding({
+      ...params,
+      model: `openai/${params.model || this.preferredModels.embedding}` // Ensure proper model prefix
+    });
   }
-  
-  /**
-   * Create embeddings from text
-   * @param {Object} params - API parameters
-   * @returns {Promise<Object>} API response with embeddings
-   */
-  async createEmbeddings(params) {
-    // Try OneAPI first
-    try {
-      const oneApiParams = {
-        provider: 'openai',
-        model: params.model || this.preferredModels.embedding,
-        input: params.input,
-        user: params.user
-      };
-      
-      return await this.oneAPI.createEmbeddings(oneApiParams);
-    } catch (oneApiError) {
-      console.warn('OneAPI embeddings creation failed, falling back to direct API call:', oneApiError);
-      
-      // Fall back to direct API call
-      const apiKey = this._getApiKey();
-      
-      const headers = {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      };
-      
-      if (this.organizationId) {
-        headers['OpenAI-Organization'] = this.organizationId;
-      }
-      
-      const response = await fetch(`${this.baseUrl}/embeddings`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          model: params.model || this.preferredModels.embedding,
-          input: params.input,
-          user: params.user
-        })
-      });
 
-      if (!response.ok) {
-        const errorData = await response.text();
-        throw new Error(`OpenAI API embeddings error: ${response.status} - ${errorData}`);
-      }
-
-      return await response.json();
-    }
-  }
-  
-  /**
-   * Process an image with vision capabilities
-   * @param {Object} params - API parameters including image data
-   * @returns {Promise<Object>} API response
-   */
-  async processImageWithVision(params) {
+  processImageWithVision(params) {
     // Prepare messages with image content
     const messages = params.messages || [
       {
@@ -242,51 +103,11 @@ export class OpenAIProvider {
       }
     ];
     
-    // Try OneAPI first
-    try {
-      const oneApiParams = {
-        provider: 'openai',
-        model: params.model || this.preferredModels.vision,
-        messages,
-        temperature: params.temperature || 0.7,
-        maxTokens: params.max_tokens || params.maxTokens,
-        user: params.user
-      };
-      
-      return await this.oneAPI.chatCompletion(oneApiParams);
-    } catch (oneApiError) {
-      console.warn('OneAPI vision processing failed, falling back to direct API call:', oneApiError);
-      
-      // Fall back to direct API call
-      const apiKey = this._getApiKey();
-      
-      const headers = {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      };
-      
-      if (this.organizationId) {
-        headers['OpenAI-Organization'] = this.organizationId;
-      }
-      
-      const response = await fetch(`${this.baseUrl}/chat/completions`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          model: params.model || this.preferredModels.vision,
-          messages,
-          temperature: params.temperature || 0.7,
-          max_tokens: params.max_tokens || params.maxTokens || 1024,
-          user: params.user
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.text();
-        throw new Error(`OpenAI API vision error: ${response.status} - ${errorData}`);
-      }
-
-      return await response.json();
-    }
+    // Forward to OpenRouter through OneAPI
+    return this.oneAPI.createChatCompletion({
+      ...params,
+      model: `openai/${params.model || this.preferredModels.vision}`, // Ensure proper model prefix
+      messages
+    });
   }
 }

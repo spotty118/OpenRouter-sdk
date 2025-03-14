@@ -1,315 +1,189 @@
 /**
- * Interface definitions for CrewAI agent orchestration
+ * Crew AI interfaces for agent and task management
  */
 
-import { ToolDefinition } from './tools.js';
-import { ChatMessage } from './messaging.js';
-import { VectorDBConfig } from './vector-db.js';
-
 /**
- * Defines the agent capabilities
- */
-export interface AgentCapability {
-  /** The name of the capability */
-  name: string;
-  /** Optional description of what this capability enables */
-  description?: string;
-}
-
-/**
- * Defines a tool available to an agent
- */
-export interface AgentTool extends ToolDefinition {
-  /** Whether the tool is required for the agent */
-  required?: boolean;
-}
-
-/**
- * Defines agent memory configuration
- */
-export interface AgentMemoryConfig {
-  /** Maximum number of messages to retain in memory */
-  messageLimit?: number;
-  /** Whether to use long-term memory for this agent */
-  useLongTermMemory?: boolean;
-  /** Memory storage type */
-  storageType?: 'volatile' | 'persistent';
-  /** Vector database configuration for knowledge storage */
-  vectorDb?: VectorDBConfig;
-  /** Namespace to use in the vector database */
-  vectorDbNamespace?: string;
-}
-
-/**
- * Defines an agent in a CrewAI setup
+ * Base agent interface
  */
 export interface Agent {
-  /** Unique identifier for this agent */
+  /**
+   * Unique identifier for the agent
+   */
   id: string;
-  /** Display name for the agent */
+
+  /**
+   * Model identifier used by this agent
+   */
+  model?: string;
+
+  /**
+   * Agent name/description
+   */
   name: string;
-  /** Description of the agent's role and capabilities */
-  description: string;
-  /** The model to use for this agent */
-  model: string;
-  /** The agent's capabilities */
-  capabilities?: AgentCapability[];
-  /** Tools available to this agent */
-  tools?: AgentTool[];
-  /** System message / instructions for this agent */
-  systemMessage?: string;
-  /** Memory configuration */
-  memory?: AgentMemoryConfig;
-  /** Maximum tokens to generate in a response */
-  maxTokens?: number;
-  /** Temperature setting for generation (0.0 to 2.0) */
-  temperature?: number;
+
+  /**
+   * Execute a task
+   */
+  execute(task: Task, config?: TaskExecutionConfig): Promise<TaskResult>;
+
+  /**
+   * Report agent status
+   */
+  status(): AgentStatus;
 }
 
-
 /**
- * Extended agent configuration with additional options
- */
-export interface ExtendedAgentConfig extends Agent {
-  max_iter?: number;
-  max_rpm?: number | null;
-  verbose?: boolean;
-  allow_delegation?: boolean;
-  system_template?: string | null;
-  prompt_template?: string | null;
-  response_template?: string | null;
-  allow_code_execution?: boolean | null;
-  max_retry_limit?: number;
-  respect_context_window?: boolean;
-  code_execution_mode?: 'safe' | 'unsafe' | null;
-  embedder?: Record<string, any> | null;
-  knowledge_sources?: any[] | null; // Replace 'any' with a more specific type if possible
-  use_system_prompt?: boolean | null;
-  
-  // OneAPI integration properties
-  oneApiEnabled?: boolean;
-  oneApiConfig?: {
-    metricsTracking?: boolean;
-    preferredProvider?: string;
-    fallbackProviders?: string[];
-    modelAliases?: Record<string, string>;
-  };
-  createdAt?: Date;
-  updatedAt?: Date;
-}
-
-
-/**
- * Defines a task for an agent to perform
+ * Task interface for agent execution
  */
 export interface Task {
-  /** Unique identifier for this task */
+  /**
+   * Unique task identifier
+   */
   id: string;
-  /** The name of the task */
-  name: string;
-  /** Description of what the task entails */
+
+  /**
+   * Task description/objective
+   */
   description: string;
-  /** Expected output description */
-  expectedOutput?: string;
-  /** Assigned agent id */
-  assignedAgentId: string;
-  /** Optional context to provide with the task */
-  context?: string;
-  /** Optional deadline for the task */
-  deadline?: Date;
-  /** Optional parent task ID for sub-tasks */
-  parentTaskId?: string;
-  /** Whether this task requires human approval */
-  requiresApproval?: boolean;
-  
-  // OneAPI integration properties
-  /** Enables OneAPI tracking for this task */
-  trackWithOneApi?: boolean;
-  /** Reference to a specific OneAPI model for this task */
-  oneApiModelOverride?: string;
-  /** Maximum tokens to use for this task when using OneAPI */
-  oneApiMaxTokens?: number;
-  /** Metadata for OneAPI tracking */
-  oneApiMetadata?: Record<string, any>;
-  /** Creation timestamp */
-  createdAt?: Date;
-  /** Last updated timestamp */
-  updatedAt?: Date;
+
+  /**
+   * Required capabilities flags
+   */
+  requiresThinking?: boolean;
+  requiresToolUse?: boolean;
+  requiresReasoning?: boolean;
+  requiresCollaboration?: boolean;
+
+  /**
+   * Task input data
+   */
+  input?: Record<string, any>;
+
+  /**
+   * Task context/metadata
+   */
+  context?: Record<string, any>;
 }
 
 /**
- * The current state of a task
- */
-export enum TaskStatus {
-  PENDING = 'pending',
-  IN_PROGRESS = 'in_progress',
-  COMPLETED = 'completed',
-  FAILED = 'failed',
-  APPROVED = 'approved',
-  REJECTED = 'rejected'
-}
-
-/**
- * Result of a completed task
- */
-export interface TaskResult {
-  /** The ID of the task */
-  taskId: string;
-  /** The ID of the agent that completed the task */
-  agentId: string;
-  /** The status of the task */
-  status: TaskStatus;
-  /** The output of the task */
-  output: string;
-  /** Any artifacts generated by the task */
-  artifacts?: any[];
-  /** Execution time in milliseconds */
-  executionTime?: number;
-  /** Raw message exchange for the task */
-  messages?: ChatMessage[];
-  /** Completion time */
-  completedAt?: Date;
-  /** Any error message if the task failed */
-  error?: string;
-  /** Human feedback if task was reviewed */
-  feedback?: string;
-  
-  // OneAPI metrics data
-  /** Usage metrics tracked by OneAPI */
-  oneApiMetrics?: {
-    /** Token usage information */
-    tokenUsage?: {
-      inputTokens?: number;
-      outputTokens?: number;
-      totalTokens?: number;
-    };
-    /** Cost information if available */
-    cost?: {
-      inputCost?: number;
-      outputCost?: number;
-      totalCost?: number;
-      currency?: string;
-    };
-    /** Model performance metrics */
-    performance?: {
-      firstTokenMs?: number;
-      totalTimeMs?: number;
-      tokensPerSecond?: number;
-    };
-    /** Provider-specific information */
-    provider?: string;
-    /** Model used for the task */
-    model?: string;
-    /** Tracking ID for the request */
-    requestId?: string;
-  };
-}
-
-/**
- * Defines how tasks should be processed
- */
-export enum ProcessMode {
-  /** Process tasks sequentially */
-  SEQUENTIAL = 'sequential',
-  /** Process tasks in parallel */
-  PARALLEL = 'parallel',
-  /** Process tasks based on dependencies */
-  HIERARCHICAL = 'hierarchical'
-}
-
-/**
- * Configuration for a crew of agents
- */
-export interface CrewConfig {
-  /** Unique identifier for the crew */
-  id: string;
-  /** Name of the crew */
-  name: string;
-  /** Description of the crew's purpose */
-  description: string;
-  /** The agents that make up this crew */
-  agents: (Agent | ExtendedAgentConfig)[];
-  /** Default processing mode for tasks */
-  processMode?: ProcessMode;
-  /** The maximum time a task should run before timing out (in ms) */
-  taskTimeout?: number;
-  /** Configuration for handling task failures */
-  failureHandling?: {
-    /** Maximum retry attempts */
-    maxRetries: number;
-    /** Whether to continue on failure */
-    continueOnFailure: boolean;
-    /** Callback to handle failures */
-    onFailure?: (taskId: string, error: any) => void;
-  };
-  /** Enable verbose logging */
-  verbose?: boolean;
-}
-
-/**
- * Configuration for a task execution in CrewAI
+ * Task execution configuration
  */
 export interface TaskExecutionConfig {
-  /** Maximum number of iterations for agent to complete task */
-  maxIterations?: number;
-  /** The processing mode for this specific task */
-  processMode?: ProcessMode;
-  /** Whether to bypass human approval even if task requires it */
-  bypassApproval?: boolean;
-  /** Additional tools to provide for this task execution */
-  additionalTools?: AgentTool[];
-  /** Additional context to provide */
-  additionalContext?: string;
+  /**
+   * Maximum execution time in milliseconds
+   */
+  timeout?: number;
+
+  /**
+   * Maximum number of retries
+   */
+  maxRetries?: number;
+
+  /**
+   * Execution strategy options
+   */
+  strategy?: {
+    /**
+     * Enable parallel subtask execution
+     */
+    parallel?: boolean;
+
+    /**
+     * Enable task decomposition
+     */
+    decompose?: boolean;
+
+    /**
+     * Enable collaborative execution
+     */
+    collaborative?: boolean;
+  };
+
+  /**
+   * Model-specific parameters
+   */
+  modelParams?: Record<string, any>;
 }
 
 /**
- * Workflow definition for connecting multiple tasks
+ * Task execution result
  */
-export interface Workflow {
-  /** Unique identifier for the workflow */
-  id: string;
-  /** Name of the workflow */
-  name: string;
-  /** Tasks in this workflow */
-  tasks: Task[];
-  /** Task dependencies (taskId -> [dependsOn taskIds]) */
-  dependencies?: Record<string, string[]>;
-  /** Default process mode for this workflow */
-  processMode?: ProcessMode;
+export interface TaskResult {
+  /**
+   * Task ID
+   */
+  taskId: string;
+
+  /**
+   * Execution success flag
+   */
+  success: boolean;
+
+  /**
+   * Result data
+   */
+  data?: any;
+
+  /**
+   * Error details if failed
+   */
+  error?: {
+    message: string;
+    code?: string;
+    details?: any;
+  };
+
+  /**
+   * Execution metrics
+   */
+  metrics?: {
+    startTime: Date;
+    endTime: Date;
+    tokensUsed?: number;
+    retryCount?: number;
+  };
+
+  /**
+   * Subtask results if decomposed
+   */
+  subtasks?: TaskResult[];
 }
 
 /**
- * Callback for task lifecycle events
+ * Agent status information 
  */
-export interface TaskCallbacks {
-  /** Called before a task starts */
-  onTaskStart?: (taskId: string, agentId: string) => void;
-  /** Called when a task is completed */
-  onTaskComplete?: (result: TaskResult) => void;
-  /** Called when a task fails */
-  onTaskError?: (taskId: string, error: any) => void;
-  /** Called when a task requires human approval */
-  onTaskApprovalRequired?: (taskId: string, result: TaskResult) => Promise<boolean>;
-}
+export interface AgentStatus {
+  /**
+   * Agent availability
+   */
+  available: boolean;
 
-/**
- * Status of an overall crew run
- */
-export interface CrewRunStatus {
-  /** Unique identifier for this run */
-  runId: string;
-  /** The crew configuration id */
-  crewId: string;
-  /** Status of each task */
-  taskStatuses: Record<string, TaskStatus>;
-  /** Results for completed tasks */
-  taskResults: Record<string, TaskResult>;
-  /** Overall status */
-  status: 'running' | 'completed' | 'failed';
-  /** Start time */
-  startTime: Date;
-  /** End time if completed */
-  endTime?: Date;
-  /** Any error that caused the run to fail */
-  error?: string;
+  /**
+   * Current load/utilization
+   */
+  load: number;
+
+  /**
+   * Active tasks
+   */
+  activeTasks: number;
+
+  /**
+   * Recently completed tasks
+   */
+  recentTasks: {
+    id: string;
+    status: 'success' | 'error';
+    timestamp: Date;
+  }[];
+
+  /**
+   * Error rate
+   */
+  errorRate: number;
+
+  /**
+   * Average latency
+   */
+  averageLatency: number;
 }

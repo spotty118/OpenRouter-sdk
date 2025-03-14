@@ -36,6 +36,22 @@ export interface WebPlugin extends Plugin {
   /**
    * Custom prompt to attach the search results to the message
    * Default includes instructions to cite sources using markdown links with the domain name
+   * 
+   * Example default prompt:
+   * "A web search was conducted on [date]. Incorporate the following web search results into your response.
+   * IMPORTANT: Cite them using markdown links named using the domain of the source.
+   * Example: [nytimes.com](https://nytimes.com/some-page)."
    */
   search_prompt?: string;
+}
+
+/**
+ * Plugin pricing information
+ */
+export interface PluginPricing {
+  /**
+   * Cost per 1000 results in USD
+   * For web search plugin, this is $4 per 1000 results
+   */
+  costPer1000Results: number;
 }

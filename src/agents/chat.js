@@ -124,12 +124,14 @@ export class ChatAgent {
       });
       
       // Start OneAPI metric tracking for this interaction
-      if (trackMetrics) {
-        this.oneAPI.startMetric({
-          type: 'chat',
+      if (trackMetrics && this.oneAPI && this.oneAPI.trackMetric) {
+        this.oneAPI.trackMetric({
+          type: 'chat_start',
+          provider: useModel.split('/')[0],
           model: useModel,
           trackingId,
-          metadata: combinedMetadata
+          metadata: combinedMetadata,
+          status: 'start'
         });
       }
       
@@ -158,11 +160,13 @@ export class ChatAgent {
             });
             
             // For streaming, return the stream directly with tracking info
-            if (trackMetrics) {
-              this.oneAPI.updateMetric({
+            if (trackMetrics && this.oneAPI && this.oneAPI.trackMetric) {
+              this.oneAPI.trackMetric({
+                type: 'chat_stream',
+                provider: modelToTry.split('/')[0],
+                model: modelToTry,
                 trackingId,
                 status: 'success',
-                model: modelToTry,
                 metadata: {
                   ...combinedMetadata,
                   attemptedModels,
@@ -201,11 +205,17 @@ export class ChatAgent {
           
           // If this is the last model to try, throw the error
           if (modelToTry === modelsToTry[modelsToTry.length - 1]) {
-            if (trackMetrics) {
-              this.oneAPI.updateMetric({
+            if (trackMetrics && this.oneAPI && this.oneAPI.trackMetric) {
+              this.oneAPI.trackMetric({
+                type: 'chat_error',
+                provider: modelToTry.split('/')[0],
+                model: modelToTry,
                 trackingId,
                 status: 'error',
-                error: error.message,
+                error: {
+                  message: error.message,
+                  code: error.code || 'unknown'
+                },
                 metadata: {
                   ...combinedMetadata,
                   attemptedModels,
@@ -242,23 +252,27 @@ export class ChatAgent {
       }
       
       // Finalize metrics if tracking is enabled
-      if (trackMetrics) {
+      if (trackMetrics && this.oneAPI && this.oneAPI.trackMetric) {
         const endTime = new Date();
         const duration = endTime - startTime;
+        const finalModel = attemptedModels[attemptedModels.length - 1];
         
-        this.oneAPI.completeMetric({
+        this.oneAPI.trackMetric({
+          type: 'chat_completion',
+          provider: finalModel.split('/')[0],
+          model: finalModel,
           trackingId,
           status: 'success',
-          model: attemptedModels[attemptedModels.length - 1],
-          duration,
-          outputTokens: response.usage?.completion_tokens || 0,
-          inputTokens: response.usage?.prompt_tokens || 0,
-          totalTokens: response.usage?.total_tokens || 0,
+          processingTime: duration,
+          tokenUsage: {
+            input: response.usage?.prompt_tokens || 0,
+            output: response.usage?.completion_tokens || 0
+          },
           metadata: {
             ...combinedMetadata,
             attemptedModels,
             usedFallback: attemptedModels.length > 1,
-            finalModel: attemptedModels[attemptedModels.length - 1]
+            finalModel
           }
         });
       }
@@ -280,12 +294,22 @@ export class ChatAgent {
       const duration = endTime - startTime;
       
       // Record error metrics if tracking is enabled
-      if (trackMetrics) {
-        this.oneAPI.completeMetric({
+      if (trackMetrics && this.oneAPI && this.oneAPI.trackMetric) {
+        this.oneAPI.trackMetric({
+          type: 'chat_error',
+          provider: (attemptedModels && attemptedModels.length > 0) ? 
+            attemptedModels[attemptedModels.length - 1].split('/')[0] : 
+            useModel.split('/')[0],
+          model: (attemptedModels && attemptedModels.length > 0) ? 
+            attemptedModels[attemptedModels.length - 1] : 
+            useModel,
           trackingId,
           status: 'error',
-          duration,
-          error: error.message,
+          processingTime: duration,
+          error: {
+            message: error.message,
+            code: error.code || 'unknown'
+          },
           metadata: {
             ...combinedMetadata,
             attemptedModels: attemptedModels || [useModel]
@@ -307,9 +331,10 @@ export class ChatAgent {
   clearConversation(sessionId, trackMetrics = this.metricsEnabled) {
     if (this.conversationHistory.has(sessionId)) {
       // Track operation if enabled
-      if (trackMetrics) {
-        this.oneAPI.trackEvent({
+      if (trackMetrics && this.oneAPI && this.oneAPI.trackMetric) {
+        this.oneAPI.trackMetric({
           type: 'conversation_cleared',
+          status: 'success',
           metadata: {
             sessionId,
             messageCount: this.conversationHistory.get(sessionId).length,
@@ -334,13 +359,12 @@ export class ChatAgent {
    * @returns {Promise<Object>} Metrics data
    */
   async getMetrics(options = {}) {
-    return this.oneAPI.getMetrics({
-      type: 'chat',
-      ...options,
-      metadata: {
-        agentType: 'chat',
-        ...(options.metadata || {})
-      }
-    });
+    if (this.oneAPI && this.oneAPI.getMetrics) {
+      return this.oneAPI.getMetrics();
+    }
+    return {
+      totalRequests: 0,
+      operations: []
+    };
   }
 }

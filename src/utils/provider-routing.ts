@@ -87,6 +87,9 @@ export class ProviderRouting {
    * ```typescript
    * // Only use models with int4 or int8 quantization
    * const preferences = ProviderRouting.filterByQuantization(['int4', 'int8']);
+   * 
+   * // Only use models with fp8 quantization
+   * const preferences = ProviderRouting.filterByQuantization(['fp8']);
    * ```
    */
   static filterByQuantization(
@@ -95,6 +98,28 @@ export class ProviderRouting {
     return {
       quantizations
     };
+  }
+
+  /**
+   * Create a combined provider routing configuration
+   * 
+   * @param options Multiple provider routing options to combine
+   * @returns A combined provider preferences object
+   * 
+   * @example
+   * ```typescript
+   * // Combine multiple routing preferences
+   * const preferences = ProviderRouting.combine(
+   *   ProviderRouting.sortProviders('throughput'),
+   *   ProviderRouting.requireParameterSupport(true),
+   *   ProviderRouting.setDataCollectionPolicy('deny')
+   * );
+   * ```
+   */
+  static combine(...options: ProviderPreferences[]): ProviderPreferences {
+    return options.reduce((combined, current) => {
+      return { ...combined, ...current };
+    }, {});
   }
 
   /**
